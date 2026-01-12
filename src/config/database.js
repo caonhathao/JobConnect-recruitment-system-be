@@ -1,4 +1,4 @@
-const {Squelize} = require('sequelize');
+const {Sequelize} = require('sequelize');
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -17,6 +17,14 @@ const sequelize = new Sequelize(
             idle: 10000
         }
     }
-    
 )
+// Kiểm tra kết nối
+sequelize.authenticate()
+    .then(() => {
+        console.log('✅ Kết nối PostgreSQL thành công bằng Sequelize!');
+    })
+    .catch(err => {
+        console.error('❌ Không thể kết nối tới Database:', err);
+    });
+
 module.exports = sequelize;
