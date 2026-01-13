@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model applications {
+  id                Int       @id @default(autoincrement())
+  job_id            Int?
+  user_id           Int?
+  cv_url            String?   @db.VarChar
+  cover_letter      String?
+  status            String?   @default("submitted") @db.VarChar
+  note_by_recruiter String?
+  applied_at        DateTime? @default(now()) @db.Timestamp(6)
+  updated_at        DateTime? @db.Timestamp(6)
+  jobs              jobs?     @relation(fields: [job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model bookmarks {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  job_id     Int?
+  created_at DateTime? @db.Timestamp(6)
+  jobs       jobs?     @relation(fields: [job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model candidate_profiles {
+  id               Int                @id @default(autoincrement())
+  user_id          Int?               @unique
+  headline         String?            @db.VarChar
+  bio              String?
+  website          String?            @db.VarChar
+  linkedin_url     String?            @db.VarChar
+  created_at       DateTime?          @db.Timestamp(6)
+  updated_at       DateTime?          @db.Timestamp(6)
+  users            users?             @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  candidate_skills candidate_skills[]
+  educations       educations[]
+  experiences      experiences[]
+}
+
+model candidate_skills {
+  profile_id         Int
+  skill_id           Int
+  candidate_profiles candidate_profiles @relation(fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  skills             skills             @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([profile_id, skill_id])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model companies {
+  id               Int      @id @default(autoincrement())
+  name             String   @db.VarChar(255)
+  user_id          Int?
+  description      String?
+  website          String?  @db.VarChar(255)
+  logo_url         String?  @db.VarChar(255)
+  address          String?  @db.VarChar(255)
+  city             String?  @db.VarChar(255)
+  size             String?  @db.VarChar(255)
+  status           String?  @db.VarChar(255)
+  rejection_reason String?
+  created_at       DateTime @db.Timestamptz(6)
+  updated_at       DateTime @db.Timestamptz(6)
+  users            users?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  jobs             jobs[]
+}
+
+model educations {
+  id                 Int                 @id @default(autoincrement())
+  profile_id         Int?
+  school_name        String?             @db.VarChar
+  degree             String?             @db.VarChar
+  start_date         DateTime?           @db.Date
+  end_date           DateTime?           @db.Date
+  candidate_profiles candidate_profiles? @relation(fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model experiences {
+  id                 Int                 @id @default(autoincrement())
+  profile_id         Int?
+  company_name       String?             @db.VarChar
+  position           String?             @db.VarChar
+  start_date         DateTime?           @db.Date
+  end_date           DateTime?           @db.Date
+  description        String?
+  candidate_profiles candidate_profiles? @relation(fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model job_skills {
+  job_id   Int
+  skill_id Int
+  jobs     jobs   @relation(fields: [job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  skills   skills @relation(fields: [skill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([job_id, skill_id])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model jobs {
+  id               Int            @id @default(autoincrement())
+  company_id       Int?
+  title            String         @db.VarChar
+  description      String?
+  requirements     String?
+  benefits         String?
+  salary_min       Int?
+  salary_max       Int?
+  location         String?        @db.VarChar
+  job_type         String?        @db.VarChar
+  job_level        String?        @db.VarChar
+  status           String?        @default("pending") @db.VarChar
+  rejection_reason String?
+  deadline         DateTime?      @db.Timestamp(6)
+  views_count      Int?           @default(0)
+  created_at       DateTime?      @db.Timestamp(6)
+  updated_at       DateTime?      @db.Timestamp(6)
+  applications     applications[]
+  bookmarks        bookmarks[]
+  job_skills       job_skills[]
+  companies        companies?     @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model resumes {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  file_name  String?   @db.VarChar
+  file_url   String?   @db.VarChar
+  is_default Boolean?  @default(false)
+  created_at DateTime? @db.Timestamp(6)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model skills {
+  id               Int                @id @default(autoincrement())
+  name             String?            @unique @db.VarChar
+  candidate_skills candidate_skills[]
+  job_skills       job_skills[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model users {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique @db.VarChar(255)
+  password           String              @db.VarChar(255)
+  full_name          String?             @db.VarChar(255)
+  role               String?             @default("candidate") @db.VarChar(255)
+  avatar_url         String?             @db.VarChar(255)
+  phone              String?             @db.VarChar(255)
+  is_active          Boolean?            @default(true)
+  created_at         DateTime            @db.Timestamptz(6)
+  updated_at         DateTime            @db.Timestamptz(6)
+  refresh_token      String?
+  applications       applications[]
+  bookmarks          bookmarks[]
+  candidate_profiles candidate_profiles?
+  companies          companies[]
+  resumes            resumes[]
+}

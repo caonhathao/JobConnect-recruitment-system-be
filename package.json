@@ -6,8 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "studio": "prisma studio --port 8888",
+    "db:push": "prisma db push",             
+    "db:migrate": "prisma migrate dev",      
+    "generate": "prisma generate"
+   
+  },  
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -24,6 +29,8 @@
     "sequelize": "^6.37.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@types/node": "^25.0.8",
+    "nodemon": "^3.1.11",
+    "prisma": "^7.2.0"
   }
 }
