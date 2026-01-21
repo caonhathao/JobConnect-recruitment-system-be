@@ -4,4 +4,5 @@ const ROLES = {
     RECRUITER: 'recruiter'
 };
 
+
 module.exports = ROLES;

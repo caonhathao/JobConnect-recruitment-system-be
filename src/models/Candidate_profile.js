@@ -1,6 +1,6 @@
-const {database} = require('sequelize')
-const sequesize = require('../config/database')
-const Candidate_profile = require('./candidate_profile')    
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+const User = require('./User');
 
 const Candidate_profile = sequelize.define('candidate_profile', {
     id: {
@@ -17,10 +17,11 @@ const Candidate_profile = sequelize.define('candidate_profile', {
     },
     headline: {
         type: DataTypes.STRING,
-        allowNull: false  
+        allowNull: false, 
+        defaultValue: 'Chưa cập nhật' 
     },
 
-    bio: {
+  bio: {
         type: DataTypes.TEXT,
         allowNull: true
     },
@@ -43,13 +44,7 @@ const Candidate_profile = sequelize.define('candidate_profile', {
         defaultValue: DataTypes.NOW,
         onUpdate: DataTypes.NOW
     },
-    updated_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-        onUpdate: DataTypes.NOW
-    },  
-
+      
     deleted_at: {
         type: DataTypes.DATE,
         allowNull: true

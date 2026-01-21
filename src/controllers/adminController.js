@@ -1,11 +1,10 @@
-const User = require('../models/User');
+const adminService = require('../services/adminService');
 
 // Lấy danh sách tất cả Users (chỉ Admin)
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.findAll({
-            attributes: { exclude: ['password', 'refresh_token'] } // Không trả về password, token
-        });
+        const users = await adminService.getAllUsers();
+        
         res.status(200).json({
             status: 'success',
             count: users.length,
@@ -21,19 +20,18 @@ exports.getAllUsers = async (req, res) => {
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const user = await User.findByPk(id);
-
-        if (!user) {
-            return res.status(404).json({ message: 'User không tồn tại' });
-        }
-
-        // Tùy chọn: Xóa cứng (hard delete) hoặc xóa mềm (set is_active = false)
-        // Ở đây demo xóa cứng
-        await user.destroy();
+        
+        await adminService.deleteUser(id);
 
         res.status(200).json({ message: 'Đã xóa user thành công' });
     } catch (error) {
         console.error(error);
+        
+        if (error.message === 'User không tồn tại') {
+            return res.status(404).json({ message: error.message });
+        }
+
         res.status(500).json({ message: 'Lỗi server' });
     }
 };
+
