@@ -1,12 +1,13 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const User = require('./User'); // Import User for association
 
 const Company = sequelize.define('Company', {
     id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,        // 1. Đổi ID công ty sang UUID cho đồng bộ
+        defaultValue: DataTypes.UUIDV4, // Tự động sinh mã
         primaryKey: true,
-        autoIncrement: true
+        allowNull: false
+
     },
     name: {
         type: DataTypes.STRING,
@@ -31,17 +32,21 @@ const Company = sequelize.define('Company', {
         type: DataTypes.STRING
     },
     status: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        defaultValue: 'pending' // Nên có giá trị mặc định là pending
     },
     rejection_reason: {
         type: DataTypes.TEXT
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,       // 2. ⚠️ QUAN TRỌNG: Phải là UUID mới khớp với bảng Users
+        allowNull: false,           // Công ty bắt buộc phải thuộc về 1 User (Recruiter)
         references: {
-            model: User,
+            model: 'users',         // Dùng tên bảng (string) an toàn hơn
             key: 'id'
-        }
+        },
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
     }
 }, {
     tableName: 'companies',
@@ -50,8 +55,6 @@ const Company = sequelize.define('Company', {
     updatedAt: 'updated_at'
 });
 
-// Define Association
-User.hasOne(Company, { foreignKey: 'user_id' });
-Company.belongsTo(User, { foreignKey: 'user_id' });
+
 
 module.exports = Company;

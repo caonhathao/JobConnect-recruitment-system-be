@@ -1,4 +1,4 @@
-const avatarService = require('../services/avatar.service');
+const avatarService = require('../services/avatar_service');
 
 exports.uploadAvatar = async (req, res) => {
     try {

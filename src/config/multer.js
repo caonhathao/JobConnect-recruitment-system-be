@@ -18,4 +18,5 @@ const uploadAvatarConfig = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // Giới hạn 5MB
 });
 
-module.exports = { uploadAvatarConfig };
+module.exports = uploadAvatarConfig;
+

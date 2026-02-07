@@ -28,7 +28,7 @@ exports.getProfile = async (userId) => {
         headline: profile.headline,
         bio: profile.bio,
         website: profile.website,
-        linkedin: profile.linkedin || profile.linkedin_url,
+        linkedin: profile.linkedin_url,
         created_at: profile.created_at,
         updated_at: profile.updated_at
     };
@@ -81,9 +81,24 @@ exports.updateProfile = async (userId, data) => {
             ...(linkedin_url !== undefined && { linkedin_url }) // Assuming strict check, or use nullish coalescing if needed
         };
 
-        await Candidate_profile.upsert(profileUpdateData, {
-            transaction: t
+        // ✅ CÁCH SỬA AN TOÀN: Kiểm tra xem đã có hồ sơ chưa
+        const existingProfile = await Candidate_profile.findOne({ 
+            where: { user_id: userId },
+            transaction: t 
         });
+
+        if (existingProfile) {
+            // Nếu có rồi -> Update
+            await Candidate_profile.update(profileUpdateData, {
+                where: { user_id: userId },
+                transaction: t
+            });
+        } else {
+            // Nếu chưa có -> Create
+            await Candidate_profile.create(profileUpdateData, {
+                transaction: t
+            });
+        }
 
         await t.commit();
 

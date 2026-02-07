@@ -1,14 +1,15 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const bcrypt = require('bcryptjs');
-const ROLES = require('../constants/roles');
+const { ROLES } = require('../constants/roles');
 
 const User = sequelize.define('User', {
     id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID, // 1. Đổi từ INTEGER sang UUID
+        defaultValue: DataTypes.UUIDV4, // 2. QUAN TRỌNG: Dòng này giúp tự sinh mã UUID
         primaryKey: true,
-        autoIncrement: true
-    },
+        allowNull: false
+    },  
     email: {
         type: DataTypes.STRING,
         allowNull: false,

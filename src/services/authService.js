@@ -1,11 +1,8 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Company = require('../models/Company');
-const Candidate_profile = require('../models/Candidate_profile');
-const ROLES = require('../constants/roles');
-const sequelize = require('../config/database');
+const { User, Company, Candidate_profile, sequelize } = require('../models');
+const { ROLES } = require('../constants/roles');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/tokenUtils');
 const { Op } = require('sequelize');
+
 /**
  * Register a new user
  * @param {Object} data - Registration data
@@ -15,18 +12,23 @@ exports.register = async (data) => {
     const { email, password, phone, full_name, company_name, address } = data;
 
     // Business Logic Validation
-    if (!email.endsWith('@gmail.com')) {
+    if (!email || !email.endsWith('@gmail.com')) {
         throw new Error('Email phải có đuôi @gmail.com');
     }
 
-    if (password.length < 6) {
+    if (!password || password.length < 6) {
         throw new Error('Password phải có ít nhất 6 ký tự');
     }
-    if(phone.length< 10){
+
+    if (!phone) {
+        throw new Error('Số điện thoại là bắt buộc');
+    }
+
+    if (phone.length < 10 || !/^\d+$/.test(phone)) {
         throw new Error('Số điện thoại ít nhất 10 ký tự và phải là số');
     }
     
-    // LOGIC REGISTRATION
+    // Check conflicts (Email or Phone)
     const existingUser = await User.findOne({
         where: {
             [Op.or]: [
@@ -46,11 +48,18 @@ exports.register = async (data) => {
     }    
     
     // Determine role
-    let role = ROLES.CANDIDATE;
-    if (company_name && address) {
-        role = ROLES.RECRUITER;
+let role = ROLES.CANDIDATE;
+// Nếu có nhập bất kỳ thông tin công ty nào
+if (company_name || address) {
+    // Validate: Phải nhập đủ cả 2
+    if (!company_name) {
+        throw new Error('Thiếu tên công ty. Vui lòng nhập đầy đủ thông tin công ty hoặc bỏ trống để đăng ký tài khoản ứng viên');
     }
-
+    if (!address) {
+        throw new Error('Thiếu địa chỉ công ty. Vui lòng nhập đầy đủ địa chỉ công ty hoặc bỏ trống để đăng ký tài khoản ứng viên');
+    }
+    role = ROLES.RECRUITER;
+}
     const t = await sequelize.transaction();
 
     try {

@@ -1,27 +1,29 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const User = require('./User');
 
-const Candidate_profile = sequelize.define('candidate_profile', {
+const Candidate_profile = sequelize.define('Candidate_profile', {
     id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,               
+        defaultValue: DataTypes.UUIDV4, 
         primaryKey: true,
-        autoIncrement: true
+        allowNull: false
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,               
+        allowNull: false,
         references: {
-            model: User,
+            model: 'users',             
             key: 'id'
-        }
+        },
+        onDelete: 'CASCADE',            
+        onUpdate: 'CASCADE'
     },
     headline: {
         type: DataTypes.STRING,
-        allowNull: false, 
-        defaultValue: 'Chưa cập nhật' 
+        allowNull: true,                
+        defaultValue: 'Chưa cập nhật'
     },
-
-  bio: {
+    bio: {
         type: DataTypes.TEXT,
         allowNull: true
     },
@@ -29,37 +31,23 @@ const Candidate_profile = sequelize.define('candidate_profile', {
         type: DataTypes.STRING,
         allowNull: true
     },
-    linkedin: {
+    linkedin_url: {                         
         type: DataTypes.STRING,
         allowNull: true
-    }, 
-    created_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
     },
-    updated_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
-        onUpdate: DataTypes.NOW
-    },
-      
+   
     deleted_at: {
         type: DataTypes.DATE,
         allowNull: true
-    },  
-    
-
- },{
+    }
+}, {
     tableName: 'candidate_profiles',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    updatedAt: 'updated_at',
+    paranoid: true // ✅ Quan trọng: Thêm dòng này nếu bạn muốn dùng tính năng 'deleted_at' (xóa mềm)
 });
-     
-// Define Association
-User.hasOne(Candidate_profile, { foreignKey: 'user_id' });
-Candidate_profile.belongsTo(User, { foreignKey: 'user_id' });
 
-module.exports = Candidate_profile;     
+
+
+module.exports = Candidate_profile;
