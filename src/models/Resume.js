@@ -3,15 +3,21 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Resume = sequelize.define('Resume', {
-    
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    user_id: { // Giữ nguyên theo sơ đồ của bạn
-        type: DataTypes.UUID,
-        allowNull: false
+    user_id: { 
+        type: DataTypes.UUID, // <--- Đã đúng (UUID)
+        allowNull: false,
+        // 👇 NÊN THÊM ĐOẠN NÀY: Để Database hiểu đây là khóa ngoại trỏ tới bảng users
+        references: {
+            model: 'users',
+            key: 'id'
+        },
+        onDelete: 'CASCADE', // Xóa User thì xóa luôn Resume
+        onUpdate: 'CASCADE'
     },
     file_name: {
         type: DataTypes.STRING,
@@ -21,7 +27,6 @@ const Resume = sequelize.define('Resume', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    // 👇 THÊM TRƯỜNG NÀY: Để hiện dung lượng (tính bằng byte)
     file_size: {
         type: DataTypes.INTEGER, 
         allowNull: true
@@ -32,7 +37,7 @@ const Resume = sequelize.define('Resume', {
     }
 }, {
     tableName: 'resumes',
-    timestamps: true, // Tự động tạo created_at và updated_at
+    timestamps: true,
     updatedAt: 'updated_at',
     createdAt: 'created_at'
 });
