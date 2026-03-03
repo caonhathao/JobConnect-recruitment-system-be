@@ -1,15 +1,27 @@
-const { Candidate_profile, Experience, Education, Skill, sequelize } = require('../models');
-
+const { Candidate_profile, Experience, Education, Skill, User, sequelize } = require('../models');
 // ==============================================================================
 // 1. CÁC HÀM HỖ TRỢ DÙNG CHUNG (PRIVATE HELPERS)
 // ==============================================================================
 
-// Helper: Lấy thông tin Profile từ User ID
+
+// Dùng cho tất cả CRUD — không join User
 const _getProfile = async (userId) => {
     const profile = await Candidate_profile.findOne({ where: { user_id: userId } });
     if (!profile) throw new Error('Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.');
     return profile;
 };
+
+// Chỉ dùng cho getFullProfile — có join User
+const _getProfileWithUser = async (userId) => {
+    const profile = await Candidate_profile.findOne({ 
+        where: { user_id: userId },
+        include: [{ model: User, attributes: ['full_name', 'avatar_url'] }]
+    });
+    if (!profile) throw new Error('Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.');
+    return profile;
+};
+
+
 
 // Helper: Tạo mới item (Dùng chung cho Experience và Education)
 const _createItem = async (Model, userId, data) => {
@@ -75,27 +87,31 @@ const _validateEducation = (data) => {
 
 // Lấy toàn bộ hồ sơ của user (bao gồm experiences, educations, skills)
 exports.getFullProfile = async (userId) => {
-    const profile = await _getProfile(userId);
-    
-    return await Candidate_profile.findByPk(profile.id, {
-        include: [
-            { 
-                model: Experience, 
-                as: 'experiences',
-                order: [['start_date', 'DESC']]
-            },
-            { 
-                model: Education, 
-                as: 'educations',
-                order: [['start_date', 'DESC']]
-            },
-            { 
-                model: Skill, 
-                as: 'skills',
-                through: { attributes: [] } // Ẩn bảng trung gian candidate_skills
-            }
-        ]
-    });
+    const profile = await _getProfileWithUser(userId);
+
+    const [experiences, educations, skills] = await Promise.all([
+        Experience.findAll({
+            where: { profile_id: profile.id },
+            order: [['start_date', 'DESC']]
+        }),
+        Education.findAll({
+            where: { profile_id: profile.id },
+            order: [['start_date', 'DESC']]
+        }),
+        exports.getSkills(userId)
+    ]);
+
+    return {
+        full_name: profile.user?.full_name,
+        avatar_url: profile.user?.avatar_url,
+        headline:   profile.headline,
+        bio:        profile.bio,
+        website:    profile.website,
+        linkedin:   profile.linkedin_url,
+        experiences,
+        educations,
+        skills
+    };
 };
 
 // Lấy danh sách kinh nghiệm

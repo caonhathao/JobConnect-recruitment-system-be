@@ -1,107 +1,66 @@
 const PortfolioService = require('../services/PortfolioService');
 
 // ==============================================================================
+// HELPER: Xử lý lỗi chung
+// ==============================================================================
+const handleError = (res, error, context) => {
+    console.error(`Lỗi ${context}:`, error);
+    const { message } = error;
+
+    if (message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.')
+        return res.status(404).json({ message });
+    if (message === 'Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.' ||
+        message === 'Không tìm thấy dữ liệu để xóa.')
+        return res.status(404).json({ message });
+    if (message.includes('không được để trống') || message.includes('phải sau'))
+        return res.status(400).json({ message });
+    if (message === 'Dữ liệu gửi lên phải là danh sách (Mảng).')
+        return res.status(400).json({ message });
+
+    return res.status(500).json({ message: `Lỗi server khi ${context}`, error: message });
+};
+
+// ==============================================================================
 // 1. ĐỌC THÔNG TIN PORTFOLIO
 // ==============================================================================
 
-// GET /api/portfolio - Lấy toàn bộ hồ sơ
+// GET /api/portfolio
 exports.getFullProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const profile = await PortfolioService.getFullProfile(userId);
-        
-        if (!profile) {
-            return res.status(404).json({ message: 'Hồ sơ không tồn tại' });
-        }
-        
-        return res.status(200).json({
-            status: 'success',
-            data: profile
-        });
+        const data = await PortfolioService.getFullProfile(req.user.id);
+        return res.status(200).json({ status: 'success', data });
     } catch (error) {
-        console.error('Lỗi khi lấy hồ sơ:', error);
-        
-        // Handle specific error: user chưa có profile
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi lấy hồ sơ',
-            error: error.message
-        });
+        return handleError(res, error, 'lấy hồ sơ');
     }
 };
 
-// GET /api/portfolio/experiences - Lấy danh sách kinh nghiệm
+// GET /api/portfolio/experiences
 exports.getExperiences = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const experiences = await PortfolioService.getExperiences(userId);
-        
-        return res.status(200).json({
-            status: 'success',
-            data: experiences
-        });
+        const data = await PortfolioService.getExperiences(req.user.id);
+        return res.status(200).json({ status: 'success', data });
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách kinh nghiệm:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi lấy danh sách kinh nghiệm',
-            error: error.message
-        });
+        return handleError(res, error, 'lấy danh sách kinh nghiệm');
     }
 };
 
-// GET /api/portfolio/educations - Lấy danh sách học vấn
+// GET /api/portfolio/educations
 exports.getEducations = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const educations = await PortfolioService.getEducations(userId);
-        
-        return res.status(200).json({
-            status: 'success',
-            data: educations
-        });
+        const data = await PortfolioService.getEducations(req.user.id);
+        return res.status(200).json({ status: 'success', data });
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách học vấn:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi lấy danh sách học vấn',
-            error: error.message
-        });
+        return handleError(res, error, 'lấy danh sách học vấn');
     }
 };
 
-// GET /api/portfolio/skills - Lấy danh sách kỹ năng
+// GET /api/portfolio/skills
 exports.getSkills = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const skills = await PortfolioService.getSkills(userId);
-        
-        return res.status(200).json({
-            status: 'success',
-            data: skills
-        });
+        const data = await PortfolioService.getSkills(req.user.id);
+        return res.status(200).json({ status: 'success', data });
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách kỹ năng:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi lấy danh sách kỹ năng',
-            error: error.message
-        });
+        return handleError(res, error, 'lấy danh sách kỹ năng');
     }
 };
 
@@ -109,117 +68,43 @@ exports.getSkills = async (req, res) => {
 // 2. QUẢN LÝ KINH NGHIỆM (EXPERIENCE)
 // ==============================================================================
 
-// POST /api/portfolio/experiences - Thêm kinh nghiệm
+// POST /api/portfolio/experiences
 exports.createExperience = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const data = req.body;
-        
-        const experience = await PortfolioService.createExperience(userId, data);
-        
-        return res.status(201).json({
-            message: 'Thêm kinh nghiệm thành công',
-            data: experience
-        });
+        const data = await PortfolioService.createExperience(req.user.id, req.body);
+        return res.status(201).json({ message: 'Thêm kinh nghiệm thành công', data });
     } catch (error) {
-        console.error('Lỗi khi thêm kinh nghiệm:', error);
-        
-        // Handle validation errors
-        if (error.message.includes('không được để trống') || 
-            error.message.includes('phải sau')) {
-            return res.status(400).json({ message: error.message });
-        }
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi thêm kinh nghiệm',
-            error: error.message
-        });
+        return handleError(res, error, 'thêm kinh nghiệm');
     }
 };
 
-// PUT /api/portfolio/experiences/:id - Cập nhật kinh nghiệm
+// PUT /api/portfolio/experiences/:id
 exports.updateExperience = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const expId = req.params.id;
-        const data = req.body;
-        
-        const experience = await PortfolioService.updateExperience(userId, expId, data);
-        
-        return res.status(200).json({
-            message: 'Cập nhật kinh nghiệm thành công',
-            data: experience
-        });
+        const data = await PortfolioService.updateExperience(req.user.id, req.params.id, req.body);
+        return res.status(200).json({ message: 'Cập nhật kinh nghiệm thành công', data });
     } catch (error) {
-        console.error('Lỗi khi cập nhật kinh nghiệm:', error);
-        
-        // Handle validation errors
-        if (error.message.includes('không được để trống') || 
-            error.message.includes('phải sau')) {
-            return res.status(400).json({ message: error.message });
-        }
-        
-        // Handle not found or permission error
-        if (error.message === 'Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi cập nhật kinh nghiệm',
-            error: error.message
-        });
+        return handleError(res, error, 'cập nhật kinh nghiệm');
     }
 };
 
-// DELETE /api/portfolio/experiences/:id - Xóa kinh nghiệm
+// DELETE /api/portfolio/experiences/:id
 exports.deleteExperience = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const expId = req.params.id;
-        
-        await PortfolioService.deleteExperience(userId, expId);
-        
-        return res.status(200).json({
-            message: 'Xóa kinh nghiệm thành công'
-        });
+        await PortfolioService.deleteExperience(req.user.id, req.params.id);
+        return res.status(200).json({ message: 'Xóa kinh nghiệm thành công' });
     } catch (error) {
-        console.error('Lỗi khi xóa kinh nghiệm:', error);
-        
-        if (error.message === 'Không tìm thấy dữ liệu để xóa.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi xóa kinh nghiệm',
-            error: error.message
-        });
+        return handleError(res, error, 'xóa kinh nghiệm');
     }
 };
 
-// DELETE /api/portfolio/experiences - Xóa tất cả kinh nghiệm
+// DELETE /api/portfolio/experiences
 exports.deleteAllExperiences = async (req, res) => {
     try {
-        const userId = req.user.id;
-        await PortfolioService.deleteAllExperiences(userId);
-        
-        return res.status(200).json({
-            message: 'Xóa tất cả kinh nghiệm thành công'
-        });
+        await PortfolioService.deleteAllExperiences(req.user.id);
+        return res.status(200).json({ message: 'Xóa tất cả kinh nghiệm thành công' });
     } catch (error) {
-        console.error('Lỗi khi xóa tất cả kinh nghiệm:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi xóa tất cả kinh nghiệm',
-            error: error.message
-        });
+        return handleError(res, error, 'xóa tất cả kinh nghiệm');
     }
 };
 
@@ -227,114 +112,43 @@ exports.deleteAllExperiences = async (req, res) => {
 // 3. QUẢN LÝ HỌC VẤN (EDUCATION)
 // ==============================================================================
 
-// POST /api/portfolio/educations - Thêm học vấn
+// POST /api/portfolio/educations
 exports.createEducation = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const data = req.body;
-        
-        const education = await PortfolioService.createEducation(userId, data);
-        
-        return res.status(201).json({
-            message: 'Thêm học vấn thành công',
-            data: education
-        });
+        const data = await PortfolioService.createEducation(req.user.id, req.body);
+        return res.status(201).json({ message: 'Thêm học vấn thành công', data });
     } catch (error) {
-        console.error('Lỗi khi thêm học vấn:', error);
-        
-        if (error.message.includes('không được để trống') || 
-            error.message.includes('phải sau')) {
-            return res.status(400).json({ message: error.message });
-        }
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi thêm học vấn',
-            error: error.message
-        });
+        return handleError(res, error, 'thêm học vấn');
     }
 };
 
-// PUT /api/portfolio/educations/:id - Cập nhật học vấn
+// PUT /api/portfolio/educations/:id
 exports.updateEducation = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const eduId = req.params.id;
-        const data = req.body;
-        
-        const education = await PortfolioService.updateEducation(userId, eduId, data);
-        
-        return res.status(200).json({
-            message: 'Cập nhật học vấn thành công',
-            data: education
-        });
+        const data = await PortfolioService.updateEducation(req.user.id, req.params.id, req.body);
+        return res.status(200).json({ message: 'Cập nhật học vấn thành công', data });
     } catch (error) {
-        console.error('Lỗi khi cập nhật học vấn:', error);
-        
-        if (error.message.includes('không được để trống') || 
-            error.message.includes('phải sau')) {
-            return res.status(400).json({ message: error.message });
-        }
-        
-        if (error.message === 'Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi cập nhật học vấn',
-            error: error.message
-        });
+        return handleError(res, error, 'cập nhật học vấn');
     }
 };
 
-// DELETE /api/portfolio/educations/:id - Xóa học vấn
+// DELETE /api/portfolio/educations/:id
 exports.deleteEducation = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const eduId = req.params.id;
-        
-        await PortfolioService.deleteEducation(userId, eduId);
-        
-        return res.status(200).json({
-            message: 'Xóa học vấn thành công'
-        });
+        await PortfolioService.deleteEducation(req.user.id, req.params.id);
+        return res.status(200).json({ message: 'Xóa học vấn thành công' });
     } catch (error) {
-        console.error('Lỗi khi xóa học vấn:', error);
-        
-        if (error.message === 'Không tìm thấy dữ liệu để xóa.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi xóa học vấn',
-            error: error.message
-        });
+        return handleError(res, error, 'xóa học vấn');
     }
 };
 
-// DELETE /api/portfolio/educations - Xóa tất cả học vấn
+// DELETE /api/portfolio/educations
 exports.deleteAllEducations = async (req, res) => {
     try {
-        const userId = req.user.id;
-        await PortfolioService.deleteAllEducations(userId);
-        
-        return res.status(200).json({
-            message: 'Xóa tất cả học vấn thành công'
-        });
+        await PortfolioService.deleteAllEducations(req.user.id);
+        return res.status(200).json({ message: 'Xóa tất cả học vấn thành công' });
     } catch (error) {
-        console.error('Lỗi khi xóa tất cả học vấn:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi xóa tất cả học vấn',
-            error: error.message
-        });
+        return handleError(res, error, 'xóa tất cả học vấn');
     }
 };
 
@@ -342,62 +156,26 @@ exports.deleteAllEducations = async (req, res) => {
 // 4. QUẢN LÝ KỸ NĂNG (SKILLS)
 // ==============================================================================
 
-// PUT /api/portfolio/skills - Cập nhật danh sách kỹ năng
+// PUT /api/portfolio/skills
 exports.updateSkills = async (req, res) => {
     try {
-        const userId = req.user.id;
         const { skills } = req.body;
-        
-        // Validation: kiểm tra trường skills có tồn tại và là mảng
         if (!skills || !Array.isArray(skills)) {
-            return res.status(400).json({ 
-                message: 'Vui lòng cung cấp danh sách kỹ năng (dạng mảng)' 
-            });
+            return res.status(400).json({ message: 'Vui lòng cung cấp danh sách kỹ năng (dạng mảng)' });
         }
-        
-        const savedSkills = await PortfolioService.updateSkills(userId, skills);
-        
-        return res.status(200).json({
-            message: 'Cập nhật kỹ năng thành công',
-            data: savedSkills
-        });
+        const data = await PortfolioService.updateSkills(req.user.id, skills);
+        return res.status(200).json({ message: 'Cập nhật kỹ năng thành công', data });
     } catch (error) {
-        console.error('Lỗi khi cập nhật kỹ năng:', error);
-        
-        if (error.message === 'Dữ liệu gửi lên phải là danh sách (Mảng).') {
-            return res.status(400).json({ message: error.message });
-        }
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi cập nhật kỹ năng',
-            error: error.message
-        });
+        return handleError(res, error, 'cập nhật kỹ năng');
     }
 };
 
-// DELETE /api/portfolio/skills - Xóa tất cả kỹ năng
+// DELETE /api/portfolio/skills
 exports.deleteAllSkills = async (req, res) => {
     try {
-        const userId = req.user.id;
-        await PortfolioService.deleteAllSkills(userId);
-        
-        return res.status(200).json({
-            message: 'Xóa tất cả kỹ năng thành công'
-        });
+        await PortfolioService.deleteAllSkills(req.user.id);
+        return res.status(200).json({ message: 'Xóa tất cả kỹ năng thành công' });
     } catch (error) {
-        console.error('Lỗi khi xóa tất cả kỹ năng:', error);
-        
-        if (error.message === 'Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.') {
-            return res.status(404).json({ message: error.message });
-        }
-        
-        return res.status(500).json({
-            message: 'Lỗi server khi xóa tất cả kỹ năng',
-            error: error.message
-        });
+        return handleError(res, error, 'xóa tất cả kỹ năng');
     }
 };

@@ -26,11 +26,11 @@ const Experience = sequelize.define('Experience', {
     }, // Chỉ cần ngày tháng năm
     end_date: {  
         type: DataTypes.DATEONLY,
-        allowNull: false
+        allowNull: true   // null = vẫn đang làm việc tại đây
     },
     description: { 
         type: DataTypes.TEXT,
-        allowNull: false 
+        allowNull: false  // Bắt buộc phải mô tả công việc
     }
 }, { tableName: 'experiences', timestamps: true });
 

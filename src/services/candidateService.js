@@ -11,6 +11,7 @@ exports.getProfile = async (userId) => {
         include: [
             {
                 model: User,
+                as: 'user',
                 attributes: ['full_name', 'phone', 'role', 'avatar_url']
             }]
     });
@@ -21,10 +22,11 @@ exports.getProfile = async (userId) => {
 
     // Return formatted data (DTO-like)
     return {
-        full_name: profile.User?.full_name,
-        phone: profile.User?.phone,
-        role: profile.User?.role,
-        avatar_url: profile.User?.avatar_url,
+        full_name: profile.user?.full_name,
+        phone: profile.user?.phone,
+        role: profile.user?.role,
+        avatar_url: profile.user?.avatar_url,
+        
         headline: profile.headline,
         bio: profile.bio,
         website: profile.website,
@@ -81,7 +83,7 @@ exports.updateProfile = async (userId, data) => {
             ...(linkedin_url !== undefined && { linkedin_url }) // Assuming strict check, or use nullish coalescing if needed
         };
 
-        // ✅ CÁCH SỬA AN TOÀN: Kiểm tra xem đã có hồ sơ chưa
+        // Kiểm tra xem đã có hồ sơ chưa
         const existingProfile = await Candidate_profile.findOne({ 
             where: { user_id: userId },
             transaction: t 
@@ -107,15 +109,28 @@ exports.updateProfile = async (userId, data) => {
             where: { user_id: userId },
             include: [{
                 model: User,
+                as: 'user',
                 attributes: ['id', 'full_name', 'phone', 'avatar_url', 'email']
             }],
             attributes: ['headline', 'bio', 'website', 'linkedin_url', 'created_at', 'updated_at']
         });
 
-        return updatedProfile;
+        // Format lại dữ liệu trả về cho đẹp (đổi .User thành .user)
+        return {
+            full_name: updatedProfile.user?.full_name,
+            phone: updatedProfile.user?.phone,
+            email: updatedProfile.user?.email,
+            avatar_url: updatedProfile.user?.avatar_url,
+            headline: updatedProfile.headline,
+            bio: updatedProfile.bio,
+            website: updatedProfile.website,
+            linkedin_url: updatedProfile.linkedin_url
+        };
 
     } catch (error) {
-        await t.rollback();
+        if (!t.finished) {
+            await t.rollback();
+        }
         throw error;
     }
 };
@@ -123,6 +138,7 @@ exports.updateProfile = async (userId, data) => {
 exports.deleteProfile = async (userId, fieldsToDelete) => {
     // Danh sách các trường hợp lệ có thể xóa
     const ALLOWED_PROFILE_FIELDS = ['headline', 'bio', 'website', 'linkedin_url'];
+
     const ALLOWED_USER_FIELDS = ['avatar_url'];
 
     // Nếu không truyền mảng hoặc mảng rỗng thì return luôn
@@ -171,8 +187,11 @@ exports.deleteProfile = async (userId, fieldsToDelete) => {
         // Tận dụng hàm getProfile có sẵn hoặc query lại
         return exports.getProfile(userId);
 
-    } catch (error) {
-        await t.rollback();
+   } catch (error) {
+        // Kiểm tra xem transaction đã commit chưa, chưa thì mới rollback
+        if (!t.finished) {
+            await t.rollback();
+        }
         throw error;
     }
 };
