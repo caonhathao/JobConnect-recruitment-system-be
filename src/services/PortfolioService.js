@@ -15,7 +15,9 @@ const _getProfile = async (userId) => {
 const _getProfileWithUser = async (userId) => {
     const profile = await Candidate_profile.findOne({ 
         where: { user_id: userId },
-        include: [{ model: User, attributes: ['full_name', 'avatar_url'] }]
+        include: [{ model: User,
+        as: 'user',    
+        attributes: ['full_name', 'avatar_url'] }]
     });
     if (!profile) throw new Error('Hồ sơ ứng viên không tồn tại. Vui lòng tạo hồ sơ chung trước.');
     return profile;

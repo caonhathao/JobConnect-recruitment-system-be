@@ -54,8 +54,8 @@ exports.updateProfile = async (userId, data) => {
         throw new Error('Số điện thoại không hợp lệ');
     }
 
-    if (linkedin_url && !linkedin_url.startsWith('https://linkedin.com/')) {
-        throw new Error('LinkedIn URL không hợp lệ');
+    if (linkedin_url && !linkedin_url.startsWith('https://')) {
+        throw new Error('LinkedIn URL không hợp lệ cần thêm https://');
     }
 
     const t = await sequelize.transaction();
