@@ -42,6 +42,7 @@ const dashboardRoutes      = require('./src/routes/DashboardRoutes');
 const adminCompanyRoutes   = require('./src/routes/AdminCompanyRoutes');
 const adminJobRoutes       = require('./src/routes/AdminJobRoutes');
 const adminReportRoutes    = require('./src/routes/AdminReportRoutes');
+const searchJobRoutes      = require('./src/routes/Search_jobRoutes');
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -52,6 +53,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/applications',      applicationRoutes);
 app.use('/api/bookmarks',         bookmarkRoutes);
 app.use('/api/suggestions',       jobSuggestionRoutes);
+app.use('/api/search-jobs',       searchJobRoutes); 
 // --- Employer ---
 app.use('/api/employer',            employerRoutes);
 app.use('/api/employer/jobs',       jobManagementRoutes);
@@ -61,6 +63,7 @@ app.use('/api/employer/dashboard',  dashboardRoutes);
 app.use('/api/admin/companies',     adminCompanyRoutes);
 app.use('/api/admin/jobs',          adminJobRoutes);
 app.use('/api/admin/reports',       adminReportRoutes);
+
 
 app.get('/', (req, res) => {
     res.status(200).json({

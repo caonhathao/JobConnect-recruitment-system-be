@@ -22,7 +22,6 @@ const _getProfileWithUser = async (userId) => {
 };
 
 
-
 // Helper: Tạo mới item (Dùng chung cho Experience và Education)
 const _createItem = async (Model, userId, data) => {
     const profile = await _getProfile(userId);
@@ -195,6 +194,7 @@ exports.deleteAllEducations = async (userId) => {
     await Education.destroy({ where: { profile_id: profile.id } });
     return true;
 };
+
 
 // ==============================================================================
 // 5. QUẢN LÝ KỸ NĂNG (SKILLS) - Quan hệ N-N
