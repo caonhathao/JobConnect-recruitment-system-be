@@ -9,23 +9,41 @@ const { Op } = require('sequelize');
  * @returns {Promise<Object>} Created user and tokens
  */
 exports.register = async (data) => {
-    const { email, password, phone, full_name, company_name, address } = data;
+    // 1. CHUẨN HÓA DỮ LIỆU ĐẦU VÀO (Làm sạch 1 lần, dùng cho toàn bộ file)
+    const email = data.email?.trim();
+    const phone = data.phone?.trim();
+    const full_name = data.full_name?.trim();
+    const password = data.password;
+    const company_name = data.company_name?.trim();
+    const address = data.address?.trim();
 
-    // Business Logic Validation
-    if (!email || !email.endsWith('@gmail.com')) {
-        throw new Error('Email phải có đuôi @gmail.com');
+    // 2. VALIDATE EMAIL
+    if (!/^[a-z0-9.]+@gmail\.com$/.test(email)) {
+        throw new Error('Email không hợp lệ (Viết liền, không dấu, không chữ hoa, đuôi @gmail.com)');
     }
 
+    // 3. VALIDATE PASSWORD
     if (!password || password.length < 6) {
         throw new Error('Password phải có ít nhất 6 ký tự');
     }
 
+    // 4. VALIDATE PHONE
     if (!phone) {
         throw new Error('Số điện thoại là bắt buộc');
     }
+    if (!/^0\d{9}$/.test(phone)) {
+        throw new Error('Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số');
+    }   
 
-    if (phone.length < 10 || !/^\d+$/.test(phone)) {
-        throw new Error('Số điện thoại ít nhất 10 ký tự và phải là số');
+    // 5. VALIDATE FULL NAME
+    if (!full_name) {
+        throw new Error('Họ tên không được để trống');
+    }
+    if (full_name.length < 2 || full_name.length > 50) {
+        throw new Error('Họ tên phải từ 2 đến 50 ký tự');
+    }
+    if (!/^[a-zA-ZÀ-ỹ\s]+$/.test(full_name)) {
+        throw new Error('Họ tên chỉ được chứa chữ cái và khoảng trắng');
     }
     
     // Check conflicts (Email or Phone)
@@ -38,14 +56,10 @@ exports.register = async (data) => {
         }
     });
 
-    if (existingUser) {
-        if (existingUser.email === email) {
-            throw new Error('Email đã được sử dụng');
-        }
-        if (existingUser.phone === phone) {
-            throw new Error('Số điện thoại đã được sử dụng');
-        }
-    }    
+   if (existingUser) {
+        if (existingUser.email === email) throw new Error('Email đã được sử dụng');
+        if (existingUser.phone === phone) throw new Error('Số điện thoại đã được sử dụng');
+    }
     
     // Determine role
 let role = ROLES.CANDIDATE;
@@ -75,21 +89,18 @@ if (company_name || address) {
         // Create profile based on role
         if (role === ROLES.CANDIDATE) {
             await Candidate_profile.create({
-                user_id: user.id,
-                headline: 'Chưa cập nhật',
-                bio: 'Chưa cập nhật',
-                website: 'Chưa cập nhật',
-                linkedin: 'Chưa cập nhật'
-            }, { transaction: t });
+                user_id: user.id
+            }, { transaction: t }); 
         }
 
         if (role === ROLES.RECRUITER) {
-            await Company.create({
-                name: company_name,
-                address: address,
-                user_id: user.id
-            }, { transaction: t });
-        }
+        await Company.create({
+            user_id: user.id,
+            name:    company_name.trim(),
+            address: address.trim(),
+            status:  'pending'
+        }, { transaction: t });
+    }
 
         // Generate tokens
         const accessToken = generateAccessToken(user.id, user.role);
@@ -107,8 +118,9 @@ if (company_name || address) {
             phone: user.phone,
             full_name: user.full_name,
             role: user.role,
-            company_name: role === ROLES.RECRUITER ? company_name : undefined,
-            address: role === ROLES.RECRUITER ? address : undefined,
+            // không trả về công ty và địa chỉ khi đăng kí 
+            // company_name: role === ROLES.RECRUITER ? company_name : undefined,
+            // address: role === ROLES.RECRUITER ? address : undefined,
             accessToken,
             refreshToken
         };

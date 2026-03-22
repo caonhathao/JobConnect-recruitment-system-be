@@ -10,11 +10,12 @@ const handleError = (res, error, context) => {
     if (
         message === 'Không tìm thấy CV hoặc bạn không có quyền thay đổi.' ||
         message === 'Không tìm thấy CV hoặc bạn không có quyền xóa.'     ||
-        message === 'Không tìm thấy CV hoặc bạn không có quyền xem.'
+        message === 'Không tìm thấy CV hoặc bạn không có quyền xem.'     
     ) 
     {
         return res.status(404).json({ status: 'error', message });
     }
+
     // 404 — File tồn tại trong DB nhưng mất trên disk
     if (message === 'File CV không tồn tại trên server.') {
         return res.status(404).json({ 
@@ -23,6 +24,13 @@ const handleError = (res, error, context) => {
         });
     }
     
+    // 400 — Upload quá số lượng CV cho phép
+    if (message === 'Bạn chỉ được upload tối đa 3 CV') {    
+        return res.status(400).json({ 
+            status: 'error', 
+            message 
+        });
+    }
     return res.status(500).json({ message: `Lỗi server khi ${context}`, error: message });
 };
 

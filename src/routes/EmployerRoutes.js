@@ -1,40 +1,37 @@
-const express  = require('express');
-const router   = express.Router();
+const express           = require('express');
+const router            = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
-const { ROLES } = require('../constants/roles');
+const { ROLES }         = require('../constants/roles');
 const EmployerController = require('../controllers/EmployerController');
-
-// ==============================================================================
-// MIDDLEWARE: Bắt buộc đăng nhập VÀ phải là recruiter
-// ==============================================================================
+const uploadLogoConfig  = require('../middleware/logoCompany');
+const multer            = require('multer');
 router.use(protect);
 router.use(authorize(ROLES.RECRUITER));
 
-// ==============================================================================
-// ROUTES — QUẢN LÝ PROFILE CÔNG TY
-// ==============================================================================
+// PROFILE
+//router.post('/profile', EmployerController.createCompany);
+router.get('/profile',  EmployerController.getMyCompany);
+router.put('/profile',  EmployerController.updateCompany);
 
-/**
- * @route   GET /api/employer/profile
- * @desc    Lấy thông tin hồ sơ công ty của recruiter
- * @access  Private (recruiter only)
- */
-router.get('/profile', EmployerController.getMyCompany);
+// LOGO
+router.put('/logo',
+    uploadLogoConfig.single('logo'),
+    EmployerController.updateLogo
+);
+router.delete('/logo', EmployerController.deleteLogo);
 
-/**
- * @route   POST /api/employer/profile
- * @desc    Tạo hồ sơ công ty (trạng thái ban đầu: pending)
- * @body    { name, description?, website?, logo_url?, address, city?, size? }
- * @access  Private (recruiter only)
- */
-router.post('/profile', EmployerController.createCompany);
-
-/**
- * @route   PUT /api/employer/profile
- * @desc    Cập nhật hồ sơ công ty (sau khi sửa → về lại pending)
- * @body    { name?, description?, website?, logo_url?, address?, city?, size? }
- * @access  Private (recruiter only)
- */
-router.put('/profile', EmployerController.updateCompany);
+// Xử lý lỗi Multer
+router.use((err, _req, res, _next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ status: 'error', message: 'File quá lớn. Tối đa 5MB.' });
+        }
+        return res.status(400).json({ status: 'error', message: `Lỗi upload: ${err.message}` });
+    }
+    if (err.message === 'Chỉ chấp nhận file ảnh!') {
+        return res.status(400).json({ status: 'error', message: err.message });
+    }
+    return res.status(500).json({ status: 'error', message: 'Lỗi server', error: err.message });
+});
 
 module.exports = router;

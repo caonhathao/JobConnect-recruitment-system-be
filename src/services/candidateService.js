@@ -47,12 +47,20 @@ exports.updateProfile = async (userId, data) => {
     const { full_name, phone, bio, website, headline, linkedin_url } = data;
 
     // Validation (Logic business)
-    if (phone && !/^\d{10,11}$/.test(phone)) {
-        throw new Error('Số điện thoại không hợp lệ');
-    }
+    if (!/^0\d{9}$/.test(phone)) {
+        throw new Error('Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số');
+    } 
 
     if (linkedin_url && !linkedin_url.startsWith('https://')) {
         throw new Error('LinkedIn URL không hợp lệ cần thêm https://');
+    }
+
+    if (full_name !== undefined) {
+
+    const trimmed = full_name.trim();
+    if (!trimmed) throw new Error('Họ tên không được để trống');
+    if (trimmed.length < 2 || trimmed.length > 50) throw new Error('Họ tên phải từ 2 đến 50 ký tự');
+    if (!/^[a-zA-ZÀ-ỹ\s]+$/.test(trimmed)) throw new Error('Họ tên chỉ được chứa chữ cái và khoảng trắng');
     }
 
     const t = await sequelize.transaction();
@@ -63,7 +71,7 @@ exports.updateProfile = async (userId, data) => {
         if (full_name) userUpdateData.full_name = full_name;
         if (phone) userUpdateData.phone = phone;
         // if (avatar_url) userUpdateData.avatar_url = avatar_url;
-
+    
         if (Object.keys(userUpdateData).length > 0) {
             await User.update(userUpdateData, {
                 where: { id: userId },

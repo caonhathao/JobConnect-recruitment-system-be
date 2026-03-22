@@ -43,6 +43,9 @@ const adminCompanyRoutes   = require('./src/routes/AdminCompanyRoutes');
 const adminJobRoutes       = require('./src/routes/AdminJobRoutes');
 const adminReportRoutes    = require('./src/routes/AdminReportRoutes');
 const searchJobRoutes      = require('./src/routes/Search_jobRoutes');
+
+// Router công khai
+const publicRoutes         = require('./src/routes/PublicRoutes'); 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -54,6 +57,8 @@ app.use('/api/applications',      applicationRoutes);
 app.use('/api/bookmarks',         bookmarkRoutes);
 app.use('/api/suggestions',       jobSuggestionRoutes);
 app.use('/api/search-jobs',       searchJobRoutes); 
+app.use('/api/public',            publicRoutes);
+
 // --- Employer ---
 app.use('/api/employer',            employerRoutes);
 app.use('/api/employer/jobs',       jobManagementRoutes);

@@ -19,11 +19,12 @@ if (!fs.existsSync(UPLOAD_DIR)) {
  * @param {{ originalname, filename, size }} file  — object từ multer
  */
 exports.uploadResume = async (userId, file) => {
-    const fileUrl = `/uploads/resumes/${file.filename}`;
-    const fileSizeKB = Math.round(file.size / 1024);
-
+    
     // Đếm số CV hiện tại để tự đặt is_default nếu đây là CV đầu tiên
     const count = await Resume.count({ where: { user_id: userId } });
+
+    const fileUrl = `/uploads/resumes/${file.filename}`;
+    const fileSizeKB = Math.round(file.size / 1024);
 
     const resume = await Resume.create({
         user_id:   userId,
