@@ -54,38 +54,54 @@ exports.applyJob = async (userId, data) => {
 };
 
 // ==============================================================================
-// 2. DANH SÁCH ĐƠN ỨNG TUYỂN CỦA TÔI
+// 2. DANH SÁCH ĐƠN ỨNG TUYỂN — Thêm phân trang + filter
 // ==============================================================================
-exports.getMyApplications = async (userId) => {
-    const applications = await Application.findAll({
-        where: { user_id: userId },
+exports.getMyApplications = async (userId, filters = {}) => {
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+    const offset     = (pageNumber - 1) * pageSize;
+
+    const where = { user_id: userId };
+    // Lọc theo trạng thái đơn
+    if (filters.status) where.status = filters.status;
+
+    const { count, rows } = await Application.findAndCountAll({
+        where,
         include: [{
             model: Job,
             as: 'job',
             attributes: ['id', 'title', 'location', 'job_type', 'salary_min', 'salary_max', 'deadline'],
             include: [{ model: Company, as: 'company', attributes: ['name', 'logo_url'] }]
         }],
-        order: [['applied_at', 'DESC']]
+        order:    [['applied_at', 'DESC']],
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
 
-    return applications.map(app => ({
-        id:                app.id,
-        status:            app.status,
-        cover_letter:      app.cover_letter,
-        cv_url:            app.cv_url,
-        applied_at:        app.applied_at,
-        note_by_recruiter: app.note_by_recruiter,
-        job: {
-            id:         app.job?.id,
-            title:      app.job?.title,
-            location:   app.job?.location,
-            job_type:   app.job?.job_type,
-            salary_min: app.job?.salary_min,
-            salary_max: app.job?.salary_max,
-            deadline:   app.job?.deadline,
-            company:    app.job?.company
-        }
-    }));
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        applications: rows.map(app => ({
+            id:                app.id,
+            status:            app.status,
+            cover_letter:      app.cover_letter,
+            cv_url:            app.cv_url,
+            applied_at:        app.applied_at,
+            note_by_recruiter: app.note_by_recruiter,
+            job: {
+                id:         app.job?.id,
+                title:      app.job?.title,
+                location:   app.job?.location,
+                job_type:   app.job?.job_type,
+                salary_min: app.job?.salary_min,
+                salary_max: app.job?.salary_max,
+                deadline:   app.job?.deadline,
+                company:    app.job?.company
+            }
+        }))
+    };
 };
 
 // ==============================================================================

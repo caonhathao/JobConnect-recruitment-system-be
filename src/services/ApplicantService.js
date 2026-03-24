@@ -1,18 +1,26 @@
 const path = require('path');
 const fs   = require('fs');
+const { Op } = require('sequelize');
 const { Company, Application, Resume, User, Job, Candidate_profile } = require('../models');
 
 // ==============================================================================
 // PRIVATE HELPER
 // ==============================================================================
-/**
- * Lấy company của recruiter (không cần approved vì đây là xem dữ liệu)
- */
 const _getCompanyId = async (userId) => {
     const company = await Company.findOne({ where: { user_id: userId } });
     if (!company) throw new Error('Bạn chưa có hồ sơ công ty.');
     return company.id;
 };
+
+// Dùng chung cho getAllApplicants, getApplicationDetail, getCvFile, updateApplicationStatus
+const _getJobIds = async (companyId) => {
+    const myJobs = await Job.findAll({
+        where: { company_id: companyId },
+        attributes: ['id']
+    });
+    return myJobs.map(j => j.id);
+};
+
 
 // ==============================================================================
 // 1. XEM DANH SÁCH ỨNG VIÊN THEO TỪNG JOB
@@ -21,15 +29,21 @@ const _getCompanyId = async (userId) => {
  * @param {string} userId  - recruiter userId
  * @param {string} jobId   - ID của tin tuyển dụng
  */
-exports.getApplicantsByJob = async (userId, jobId) => {
+exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
     const companyId = await _getCompanyId(userId);
 
-    // Kiểm tra job thuộc công ty này
     const job = await Job.findOne({ where: { id: jobId, company_id: companyId } });
     if (!job) throw new Error('Tin tuyển dụng không tồn tại hoặc không thuộc công ty bạn.');
 
-    const applications = await Application.findAll({
-        where: { job_id: jobId },
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+    const offset     = (pageNumber - 1) * pageSize;
+
+    const where = { job_id: jobId };
+    if (filters.status) where.status = filters.status;
+
+    const { count, rows } = await Application.findAndCountAll({
+        where,
         include: [{
             model: User,
             as: 'candidate',
@@ -40,27 +54,35 @@ exports.getApplicantsByJob = async (userId, jobId) => {
                 attributes: ['headline', 'bio', 'linkedin_url']
             }]
         }],
-        order: [['applied_at', 'DESC']]
+        order:    [['applied_at', 'DESC']],
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
 
-    return applications.map(app => ({
-        application_id:    app.id,
-        status:            app.status,
-        cover_letter:      app.cover_letter,
-        cv_url:            app.cv_url,
-        applied_at:        app.applied_at,
-        note_by_recruiter: app.note_by_recruiter,
-        candidate: {
-            id:         app.candidate?.id,
-            full_name:  app.candidate?.full_name,
-            email:      app.candidate?.email,
-            phone:      app.candidate?.phone,
-            avatar_url: app.candidate?.avatar_url,
-            headline:   app.candidate?.candidateProfile?.headline,
-            bio:        app.candidate?.candidateProfile?.bio,
-            linkedin:   app.candidate?.candidateProfile?.linkedin_url
-        }
-    }));
+    return {
+        total_items:   count,
+        total_pages:   Math.ceil(count / pageSize),
+        current_page:  pageNumber,
+        applications:  rows.map(app => ({
+            application_id:    app.id,
+            status:            app.status,
+            cover_letter:      app.cover_letter,
+            cv_url:            app.cv_url,
+            applied_at:        app.applied_at,
+            note_by_recruiter: app.note_by_recruiter,
+            candidate: {
+                id:         app.candidate?.id,
+                full_name:  app.candidate?.full_name,
+                email:      app.candidate?.email,
+                phone:      app.candidate?.phone,
+                avatar_url: app.candidate?.avatar_url,
+                headline:   app.candidate?.candidateProfile?.headline,
+                bio:        app.candidate?.candidateProfile?.bio,
+                linkedin:   app.candidate?.candidateProfile?.linkedin_url
+            }
+        }))
+    };
 };
 
 // ==============================================================================
@@ -68,20 +90,21 @@ exports.getApplicantsByJob = async (userId, jobId) => {
 // ==============================================================================
 exports.getAllApplicants = async (userId, filters = {}) => {
     const companyId = await _getCompanyId(userId);
+    const jobIds    = await _getJobIds(companyId); // Dùng helper
 
-    // Lấy danh sách job_id của công ty
-    const myJobs = await Job.findAll({
-        where: { company_id: companyId },
-        attributes: ['id']
-    });
-    const jobIds = myJobs.map(j => j.id);
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+    const offset     = (pageNumber - 1) * pageSize;
 
-    if (jobIds.length === 0) return [];
+    // Trả về object phân trang luôn dù không có job
+    if (jobIds.length === 0) {
+        return { total_items: 0, total_pages: 0, current_page: pageNumber, applications: [] };
+    }
 
     const where = { job_id: jobIds };
     if (filters.status) where.status = filters.status;
 
-    const applications = await Application.findAll({
+    const { count, rows } = await Application.findAndCountAll({
         where,
         include: [
             {
@@ -95,23 +118,31 @@ exports.getAllApplicants = async (userId, filters = {}) => {
                 attributes: ['id', 'title']
             }
         ],
-        order: [['applied_at', 'DESC']]
+        order:    [['applied_at', 'DESC']],
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
 
-    return applications.map(app => ({
-        application_id: app.id,
-        status:         app.status,
-        cv_url:         app.cv_url,
-        applied_at:     app.applied_at,
-        job:            { id: app.job?.id, title: app.job?.title },
-        candidate:      {
-            id:         app.candidate?.id,
-            full_name:  app.candidate?.full_name,
-            email:      app.candidate?.email,
-            phone:      app.candidate?.phone,
-            avatar_url: app.candidate?.avatar_url
-        }
-    }));
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        applications: rows.map(app => ({
+            application_id: app.id,
+            status:         app.status,
+            cv_url:         app.cv_url,
+            applied_at:     app.applied_at,
+            job:       { id: app.job?.id, title: app.job?.title },
+            candidate: {
+                id:         app.candidate?.id,
+                full_name:  app.candidate?.full_name,
+                email:      app.candidate?.email,
+                phone:      app.candidate?.phone,
+                avatar_url: app.candidate?.avatar_url
+            }
+        }))
+    };
 };
 
 // ==============================================================================
@@ -119,9 +150,7 @@ exports.getAllApplicants = async (userId, filters = {}) => {
 // ==============================================================================
 exports.getApplicationDetail = async (userId, applicationId) => {
     const companyId = await _getCompanyId(userId);
-
-    const myJobs = await Job.findAll({ where: { company_id: companyId }, attributes: ['id'] });
-    const jobIds = myJobs.map(j => j.id);
+    const jobIds    = await _getJobIds(companyId); // Dùng helper
 
     const app = await Application.findOne({
         where: { id: applicationId, job_id: jobIds },
@@ -147,30 +176,24 @@ exports.getApplicationDetail = async (userId, applicationId) => {
 // ==============================================================================
 // 4. XEM TRƯỚC PDF CV / TẢI CV
 // ==============================================================================
-/**
- * @returns {{ filePath, fileName, mode }} mode = 'view' hoặc 'download'
- */
 exports.getCvFile = async (userId, applicationId, mode = 'view') => {
     const companyId = await _getCompanyId(userId);
-    const myJobs = await Job.findAll({ where: { company_id: companyId }, attributes: ['id'] });
-    const jobIds = myJobs.map(j => j.id);
+    const jobIds    = await _getJobIds(companyId); // Dùng helper
 
     const app = await Application.findOne({
         where: { id: applicationId, job_id: jobIds }
     });
-    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.');
+    if (!app)        throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.');
     if (!app.cv_url) throw new Error('Ứng viên này chưa đính kèm CV.');
 
-    // cv_url lưu dạng: /uploads/resumes/resume-xxx.pdf
     const filePath = path.join(__dirname, '..', app.cv_url);
     if (!fs.existsSync(filePath)) throw new Error('File CV không tồn tại trên server.');
 
-    const fileName = path.basename(filePath);
-    return { filePath, fileName, mode };
+    return { filePath, fileName: path.basename(filePath), mode };
 };
 
 // ==============================================================================
-// 5. CẬP NHẬT TRẠNG THÁI HỒ SƠ ỨNG VIÊN
+// 5. CẬP NHẬT TRẠNG THÁI ĐƠN ỨNG TUYỂN
 // ==============================================================================
 const VALID_STATUS_FLOW = ['submitted', 'under_review', 'interview', 'accepted', 'rejected'];
 
@@ -180,15 +203,13 @@ exports.updateApplicationStatus = async (userId, applicationId, status, note) =>
     }
 
     const companyId = await _getCompanyId(userId);
-    const myJobs    = await Job.findAll({ where: { company_id: companyId }, attributes: ['id'] });
-    const jobIds    = myJobs.map(j => j.id);
+    const jobIds    = await _getJobIds(companyId); // Dùng helper
 
     const app = await Application.findOne({
         where: { id: applicationId, job_id: jobIds }
     });
     if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.');
 
-    // Không cho lùi trạng thái (chỉ tiến hoặc reject)
     const currentIdx = VALID_STATUS_FLOW.indexOf(app.status);
     const newIdx     = VALID_STATUS_FLOW.indexOf(status);
 

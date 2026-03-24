@@ -1,19 +1,52 @@
-const { User, Company } = require('../models');
-
+const { User } = require('../models');
+const { Op } = require('sequelize')
 /**
  * Get all users except sensitive fields
  * @returns {Promise<Array>} List of users
  */
 exports.getAllUsers = async (filters = {}) => {
-    const where = {};
-    if (filters.role) where.role = filters.role;
-    if (filters.is_active !== undefined) where.is_active = filters.is_active === 'true';
+    const {
+        role,
+        is_active,
+        page  = 1,
+        limit = 10,
+        keyword
+    } = filters;
 
-    return await User.findAll({
+    const pageSize   = Math.min(50, Math.max(1, parseInt(limit)));
+    const pageNumber = Math.max(1, parseInt(page));
+    const offset     = (pageNumber - 1) * pageSize;
+
+    // Build where clause
+    const where = {};
+    if (role)                        where.role      = role;
+    if (is_active !== undefined)     where.is_active = is_active === 'true';
+
+    // Tìm kiếm theo tên hoặc email
+    if (keyword) {
+        const key = keyword.trim();
+        where[Op.or] = [
+            { full_name: { [Op.substring]: key } },
+            { email:     { [Op.substring]: key } },
+            { phone:     { [Op.substring]: key } }
+        ];
+    }
+
+    const { count, rows } = await User.findAndCountAll({
         where,
         attributes: { exclude: ['password', 'refresh_token'] },
-        order: [['created_at', 'DESC']]
+        order:  [['created_at', 'DESC']],
+        limit:  pageSize,
+        offset,
+        distinct: true
     });
+
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        users:        rows
+    };
 };
 
 /**

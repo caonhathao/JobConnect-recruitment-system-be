@@ -21,8 +21,12 @@ exports.toggleBookmark = async (userId, jobId) => {
 // ==============================================================================
 // 2. DANH SÁCH TIN ĐÃ LƯU
 // ==============================================================================
-exports.getBookmarks = async (userId) => {
-    const bookmarks = await Bookmark.findAll({
+exports.getBookmarks = async (userId, filters = {}) => {
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+    const offset     = (pageNumber - 1) * pageSize;
+
+    const { count, rows } = await Bookmark.findAndCountAll({
         where: { user_id: userId },
         include: [{
             model: Job,
@@ -34,12 +38,20 @@ exports.getBookmarks = async (userId) => {
                 attributes: ['name', 'logo_url', 'city']
             }]
         }],
-        order: [['createdAt', 'DESC']]
+        order:    [['createdAt', 'DESC']],
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
 
-    return bookmarks.map(b => ({
-        bookmark_id: b.id,
-        saved_at:    b.createdAt,
-        job:         b.job
-    }));
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        bookmarks:    rows.map(b => ({
+            bookmark_id: b.id,
+            saved_at:    b.createdAt,
+            job:         b.job
+        }))
+    };
 };

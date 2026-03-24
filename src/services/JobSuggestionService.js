@@ -1,15 +1,11 @@
 const { Op } = require('sequelize');
-const { Candidate_profile, Skill, Job, Company, sequelize } = require('../models');
+const { Candidate_profile, Skill, Job, Company, Application, sequelize } = require('../models');
 
-// ==============================================================================
-// ĐỀ XUẤT CÔNG VIỆC DỰA TRÊN KỸ NĂNG ỨNG VIÊN
-// ==============================================================================
-/**
- * @param {string} userId
- * @param {number} limit - số lượng kết quả tối đa
- */
 exports.getJobSuggestions = async (userId, limit = 10) => {
-    // 1. Lấy danh sách kỹ năng của ứng viên
+    // Giới hạn tối đa 50
+    const safeLimit = Math.min(50, Math.max(1, parseInt(limit) || 10));
+
+    // 1. Lấy kỹ năng ứng viên
     const profile = await Candidate_profile.findOne({
         where: { user_id: userId },
         include: [{
@@ -20,27 +16,34 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
         }]
     });
 
-    // Không có kỹ năng → trả về job mới nhất được duyệt
+    // 1a. Lấy danh sách job đã ứng tuyển — dùng Sequelize thay vì literal
+    const appliedApplications = await Application.findAll({
+        where:      { user_id: userId },
+        attributes: ['job_id']
+    });
+    const appliedJobIds = appliedApplications.map(a => a.job_id);
+
+    const excludeClause = appliedJobIds.length > 0
+        ? { id: { [Op.notIn]: appliedJobIds } }
+        : {};
+
+    // Không có kỹ năng → trả về job mới nhất
     if (!profile || !profile.skills || profile.skills.length === 0) {
         return await Job.findAll({
-            where: { status: 'approved' },
+            where: { status: 'approved', ...excludeClause },
             include: [{ model: Company, as: 'company', attributes: ['name', 'logo_url', 'city'] }],
             order: [['createdAt', 'DESC']],
-            limit: Number(limit)
+            limit: safeLimit
         });
     }
 
     const candidateSkillIds = profile.skills.map(s => s.id);
 
-    // 2. Tìm Job có ít nhất 1 skill trùng khớp, loại bỏ job đã ứng tuyển
+    // 2. Tìm job có skill khớp
     const jobs = await Job.findAll({
         where: {
             status: 'approved',
-            id: {
-                [Op.notIn]: sequelize.literal(`(
-                    SELECT job_id FROM applications WHERE user_id = '${userId}'
-                )`)
-            }
+            ...excludeClause
         },
         include: [
             {
@@ -53,20 +56,20 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
                 as: 'skills',
                 through: { attributes: [] },
                 attributes: ['id', 'name'],
-                where: { id: { [Op.in]: candidateSkillIds } },
-                required: true  // INNER JOIN: chỉ lấy job có ít nhất 1 skill khớp
+                where:    { id: { [Op.in]: candidateSkillIds } },
+                required: true
             }
         ],
-        limit: Number(limit) * 3    // Lấy dư để sort rồi cắt
+        limit: safeLimit * 3
     });
 
-    // 3. Tính điểm match và sắp xếp (nhiều skill khớp → đầu tiên)
-    const scored = jobs
+    // 3. Tính điểm match và sắp xếp
+    return jobs
         .map(job => {
-            const jobSkillIds    = job.skills.map(s => s.id);
-            const matchCount     = jobSkillIds.filter(id => candidateSkillIds.includes(id)).length;
-            const matchPercent   = Math.round((matchCount / candidateSkillIds.length) * 100);
-            const matchedSkills  = job.skills
+            const jobSkillIds   = job.skills.map(s => s.id);
+            const matchCount    = jobSkillIds.filter(id => candidateSkillIds.includes(id)).length;
+            const matchPercent  = Math.round((matchCount / candidateSkillIds.length) * 100);
+            const matchedSkills = job.skills
                 .filter(s => candidateSkillIds.includes(s.id))
                 .map(s => s.name);
 
@@ -85,7 +88,5 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
             };
         })
         .sort((a, b) => b.match_count - a.match_count)
-        .slice(0, Number(limit));
-
-    return scored;
+        .slice(0, safeLimit);
 };

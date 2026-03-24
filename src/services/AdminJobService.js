@@ -1,10 +1,15 @@
 const { Job, Company, User, Skill } = require('../models');
+const { Op } = require('sequelize');
 
 // ==============================================================================
 // 1. DANH SÁCH TIN TUYỂN DỤNG ĐANG CHỜ DUYỆT
 // ==============================================================================
-exports.getPendingJobs = async () => {
-    return await Job.findAll({
+exports.getPendingJobs = async (filters = {}) => {
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+    const offset     = (pageNumber - 1) * pageSize;
+
+    const { count, rows } = await Job.findAndCountAll({
         where: { status: 'pending' },
         include: [
             {
@@ -20,18 +25,44 @@ exports.getPendingJobs = async () => {
                 attributes: ['id', 'name']
             }
         ],
-        order: [['createdAt', 'ASC']]   // FIFO — Đơn cũ nhất duyệt trước
+        order:    [['createdAt', 'ASC']], // FIFO
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
+
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        jobs:         rows
+    };
 };
 
 // ==============================================================================
 // 2. DANH SÁCH TẤT CẢ TIN TUYỂN DỤNG (lọc theo status)
 // ==============================================================================
 exports.getAllJobs = async (filters = {}) => {
-    const where = {};
-    if (filters.status) where.status = filters.status;
+    const {
+        status,
+        keyword,
+        page  = 1,
+        limit = 10
+    } = filters;
 
-    return await Job.findAll({
+    const pageSize   = Math.min(50, Math.max(1, parseInt(limit)));
+    const pageNumber = Math.max(1, parseInt(page));
+    const offset     = (pageNumber - 1) * pageSize;
+
+    const where = {};
+    if (status) where.status = status;
+
+    // Tìm kiếm theo tiêu đề job
+    if (keyword) {
+        where.title = { [Op.substring]: keyword.trim() };
+    }
+
+    const { count, rows } = await Job.findAndCountAll({
         where,
         include: [
             {
@@ -46,8 +77,18 @@ exports.getAllJobs = async (filters = {}) => {
                 attributes: ['id', 'name']
             }
         ],
-        order: [['createdAt', 'DESC']]
+        order:    [['createdAt', 'DESC']],
+        limit:    pageSize,
+        offset,
+        distinct: true
     });
+
+    return {
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
+        current_page: pageNumber,
+        jobs:         rows
+    };
 };
 
 // ==============================================================================
