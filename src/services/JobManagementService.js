@@ -37,7 +37,13 @@ const _attachSkills = async (job, skills, transaction) => {
         });
         skillIds.push(skill.id);
     }
-    await job.setSkills(skillIds, { transaction });
+
+    // Fix error
+    await Job_skill.destroy({ where: { job_id: job.id }, transaction });
+    await Job_skill.bulkCreate(
+        skillIds.map(skill_id => ({ job_id: job.id, skill_id })),
+        { transaction }
+    );
 };
 
 // ==============================================================================

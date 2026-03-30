@@ -21,27 +21,56 @@ const handleError = (res, error, context) => {
 // GET /api/admin/companies?status=pending|approved|rejected
 // Danh sách tất cả công ty (có lọc theo status)
 // ==============================================================================
+// exports.getAllCompanies = async (req, res) => {
+//     try {
+        
+//         const data = await AdminCompanyService.getAllCompanies(req.query);
+//         return res.status(200).json({ status: 'success', count: data.length, data });
+//     } catch (error) {
+//         return handleError(res, error, 'lấy danh sách công ty');
+//     }
+// };
 exports.getAllCompanies = async (req, res) => {
     try {
-        const data = await AdminCompanyService.getAllCompanies(req.query);
-        return res.status(200).json({ status: 'success', count: data.length, data });
+        const result = await AdminCompanyService.getAllCompanies(req.query);
+        return res.status(200).json({ 
+            status: 'success', 
+            // count: result.companies.length, // Lấy độ dài của mảng companies
+            data: result 
+        });
     } catch (error) {
         return handleError(res, error, 'lấy danh sách công ty');
     }
 };
 
+
 // ==============================================================================
 // GET /api/admin/companies/pending
 // Danh sách công ty đang chờ duyệt
 // ==============================================================================
+// exports.getPendingCompanies = async (req, res) => {
+//     try {
+//         const data = await AdminCompanyService.getPendingCompanies();
+//         return res.status(200).json({ status: 'success', count: data.length, data });
+//     } catch (error) {
+//         return handleError(res, error, 'lấy danh sách công ty chờ duyệt');
+//     }
+// };
+
 exports.getPendingCompanies = async (req, res) => {
     try {
-        const data = await AdminCompanyService.getPendingCompanies();
-        return res.status(200).json({ status: 'success', count: data.length, data });
+        const result = await AdminCompanyService.getPendingCompanies(req.query); // Truyền req.query để phân trang
+        return res.status(200).json({ 
+            status: 'success', 
+            // count: result.companies.length, 
+            data: result 
+        });
     } catch (error) {
         return handleError(res, error, 'lấy danh sách công ty chờ duyệt');
     }
 };
+
+
 
 // ==============================================================================
 // PATCH /api/admin/companies/:id/review

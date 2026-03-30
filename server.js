@@ -27,7 +27,6 @@ app.use('/uploads', express.static(require('path').join(__dirname, 'src/uploads'
 // route mặc đinh
 // Import routes
 const authRoutes = require('./src/routes/authRoutes');
-const adminRoutes = require('./src/routes/adminRoutes');
 const candidate_profile = require('./src/routes/candidate_Routes');
 const avatarRoutes = require('./src/routes/avatarRoute');
 const portfolioRoutes = require('./src/routes/PortfolioRoutes');
@@ -42,13 +41,13 @@ const dashboardRoutes      = require('./src/routes/DashboardRoutes');
 const adminCompanyRoutes   = require('./src/routes/AdminCompanyRoutes');
 const adminJobRoutes       = require('./src/routes/AdminJobRoutes');
 const adminReportRoutes    = require('./src/routes/AdminReportRoutes');
+const adminRoutes          = require('./src/routes/adminRoutes');   
 const searchJobRoutes      = require('./src/routes/Search_jobRoutes');
 
 // Router công khai
 const publicRoutes         = require('./src/routes/PublicRoutes'); 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
 app.use('/api/candidate', candidate_profile);
 app.use('/api/avatar', avatarRoutes);   
 app.use('/api/portfolio', portfolioRoutes);
@@ -60,14 +59,18 @@ app.use('/api/search-jobs',       searchJobRoutes);
 app.use('/api/public',            publicRoutes);
 
 // --- Employer ---
-app.use('/api/employer',            employerRoutes);
-app.use('/api/employer/jobs',       jobManagementRoutes);
-app.use('/api/employer/applicants', applicantRoutes);
-app.use('/api/employer/dashboard',  dashboardRoutes);
+app.use('/api/employer/profile',                employerRoutes);
+app.use('/api/employer/logo',               employerRoutes);
+app.use('/api/employer/jobs',               jobManagementRoutes);
+app.use('/api/employer/applicants',         applicantRoutes);
+app.use('/api/employer/dashboard',          dashboardRoutes);
+
+
 // --- Admin ---
 app.use('/api/admin/companies',     adminCompanyRoutes);
 app.use('/api/admin/jobs',          adminJobRoutes);
 app.use('/api/admin/reports',       adminReportRoutes);
+app.use('/api/admin/users   ',         adminRoutes);
 
 
 app.get('/', (req, res) => {

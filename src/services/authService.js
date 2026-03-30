@@ -18,8 +18,8 @@ exports.register = async (data) => {
     const address = data.address?.trim();
 
     // 2. VALIDATE EMAIL
-    if (!/^[a-z0-9.]+@gmail\.com$/.test(email)) {
-        throw new Error('Email không hợp lệ (Viết liền, không dấu, không chữ hoa, đuôi @gmail.com)');
+    if (!/^[a-zA-Z0-9.]+@gmail\.com$/.test(email)) {
+        throw new Error('Email không hợp lệ (Viết liền, không dấu, đuôi @gmail.com)');
     }
 
     // 3. VALIDATE PASSWORD
@@ -118,9 +118,6 @@ if (company_name || address) {
             phone: user.phone,
             full_name: user.full_name,
             role: user.role,
-            // không trả về công ty và địa chỉ khi đăng kí 
-            // company_name: role === ROLES.RECRUITER ? company_name : undefined,
-            // address: role === ROLES.RECRUITER ? address : undefined,
             accessToken,
             refreshToken
         };
@@ -142,12 +139,14 @@ exports.login = async ({ email, password }) => {
         throw new Error('Email hoặc mật khẩu không đúng');
     }
 
+
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
         throw new Error('Mật khẩu không đúng');
     }
 
+    
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id);
@@ -157,16 +156,16 @@ exports.login = async ({ email, password }) => {
     await user.save();
 
     return {
-        id: user.id,
-        phone: user.phone,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        company_name: user.company_name, // Note: user.company_name might not exist solely on User model unless joined or virtual. Controller used it, so keeping assuming it's available or undefined.
-        address: user.address,           // Same as above
-        accessToken,
-        refreshToken
-    };
+    id:           user.id,
+    email:        user.email,
+    phone:        user.phone,
+    full_name:    user.full_name,
+    role:         user.role,
+    avatar_url:   user.avatar_url || null,
+    accessToken,
+    refreshToken
+};
+
 };
 
 /**
@@ -196,7 +195,6 @@ exports.refreshToken = async (refreshToken) => {
  */
 exports.logout = async (user) => {
     if (user) {
-        user.refresh_token = null;
         await user.save();
     }
 };

@@ -7,6 +7,15 @@ const AdminCompanyController = require('../controllers/AdminCompanyController');
 router.use(protect);
 router.use(authorize(ROLES.ADMIN));
 
+
+/**
+ * @route   GET /api/admin/companies/pending
+ * @desc    Danh sách công ty đang chờ duyệt (sắp xếp cũ nhất lên đầu)
+ * @access  Admin only
+ */
+router.get('/pending', AdminCompanyController.getPendingCompanies); 
+
+
 /**
  * @route   GET /api/admin/companies?status=pending|approved|rejected
  * @desc    Lấy toàn bộ danh sách công ty (có thể lọc theo status)
@@ -14,12 +23,7 @@ router.use(authorize(ROLES.ADMIN));
  */
 router.get('/', AdminCompanyController.getAllCompanies);
 
-/**
- * @route   GET /api/admin/companies/pending
- * @desc    Danh sách công ty đang chờ duyệt (sắp xếp cũ nhất lên đầu)
- * @access  Admin only
- */
-router.get('/pending', AdminCompanyController.getPendingCompanies);
+
 
 /**
  * @route   PATCH /api/admin/companies/:id/review

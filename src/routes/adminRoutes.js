@@ -11,19 +11,19 @@ router.use(authorize(ROLES.ADMIN));
  * @route  GET  /api/admin/users?role=candidate|recruiter&is_active=true|false
  * @desc   Lấy danh sách tất cả user (có thể lọc theo role, trạng thái)
  */
-router.get('/users', getAllUsers);
+router.get('/', getAllUsers);
 
 /**
  * @route  PATCH /api/admin/users/:id/toggle-lock
  * @desc   Khóa hoặc Mở khóa tài khoản (toggle is_active)
  */
-router.patch('/users/:id/toggle-lock', toggleLockUser);
+router.patch('/:id/toggle-lock', toggleLockUser);
 
 /**
  * @route  DELETE /api/admin/users/:id
  * @desc   Xóa vĩnh viễn tài khoản (không thể xóa Admin)
  */
-router.delete('/users/:id', deleteUser);
+router.delete('/:id', deleteUser);
 
 module.exports = router;
 

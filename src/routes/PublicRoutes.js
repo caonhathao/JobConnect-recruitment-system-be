@@ -3,6 +3,8 @@ const router = express.Router();
 
 const publicController = require('../controllers/PublicController');
 
+
+
 // Xem chi tiết công việc (Public)
 router.get('/jobs/:id', publicController.getJobDetail);
 // Xem chi tiết công ty (Public)

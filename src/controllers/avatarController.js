@@ -1,46 +1,7 @@
 const avatarService = require('../services/avatar_service');
 
 // ================================================================
-// Upload avatar lần đầu
-// ================================================================
-exports.uploadAvatar = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Vui lòng chọn file ảnh hợp lệ'
-            });
-        }
-
-        const userId = req.user.id;
-        const newAvatarUrl = await avatarService.updateAvatar(userId, req.file.buffer);
-
-        return res.status(200).json({
-            status: 'success',
-            message: 'Upload avatar thành công',
-            data: { avatar_url: newAvatarUrl }
-        });
-
-    } catch (error) {
-        console.error('Lỗi upload avatar:', error);
-
-        if (error.message === 'User không tồn tại') {
-            return res.status(404).json({
-                status: 'error',
-                message: 'User không tồn tại'
-            });
-        }
-
-        return res.status(500).json({
-            status: 'error',
-            message: 'Lỗi server khi upload avatar',
-            error: error.message
-        });
-    }
-};
-
-// ================================================================
-// Cập nhật avatar — logic giống Upload, dùng chung service
+// Cập nhật avatar (Upload lần đầu hoặc thay mới — dùng chung)
 // ================================================================
 exports.updateAvatar = async (req, res) => {
     try {
@@ -51,8 +12,7 @@ exports.updateAvatar = async (req, res) => {
             });
         }
 
-        const userId = req.user.id;
-        const newAvatarUrl = await avatarService.updateAvatar(userId, req.file.buffer);
+        const newAvatarUrl = await avatarService.updateAvatar(req.user.id, req.file.buffer);
 
         return res.status(200).json({
             status: 'success',
@@ -83,8 +43,7 @@ exports.updateAvatar = async (req, res) => {
 // ================================================================
 exports.deleteAvatar = async (req, res) => {
     try {
-        const userId = req.user.id;
-        await avatarService.deleteAvatar(userId);
+        await avatarService.deleteAvatar(req.user.id);
 
         return res.status(200).json({
             status: 'success',

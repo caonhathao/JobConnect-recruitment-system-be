@@ -10,15 +10,15 @@ router.use(authorize(ROLES.RECRUITER));
 
 // PROFILE
 //router.post('/profile', EmployerController.createCompany);
-router.get('/profile',  EmployerController.getMyCompany);
-router.put('/profile',  EmployerController.updateCompany);
+router.get('/',  EmployerController.getMyCompany);
+router.put('/',  EmployerController.updateCompany);
 
 // LOGO
-router.put('/logo',
+router.put('/',
     uploadLogoConfig.single('logo'),
     EmployerController.updateLogo
 );
-router.delete('/logo', EmployerController.deleteLogo);
+router.delete('/', EmployerController.deleteLogo);
 
 // Xử lý lỗi Multer
 router.use((err, _req, res, _next) => {

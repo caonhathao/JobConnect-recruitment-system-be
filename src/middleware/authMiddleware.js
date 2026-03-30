@@ -48,6 +48,7 @@ exports.protect = async (req, res, next) => {
 
     // Nếu không có token ngay từ đầu
     if (!token) {
+        console.error('Error: No token provided');
         return res.status(401).json({ 
             message: 'Bạn chưa đăng nhập (Thiếu Token).' 
         });

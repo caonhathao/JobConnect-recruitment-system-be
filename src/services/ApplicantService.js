@@ -1,7 +1,7 @@
 const path = require('path');
 const fs   = require('fs');
 const { Op } = require('sequelize');
-const { Company, Application, Resume, User, Job, Candidate_profile } = require('../models');
+const { Company, Application, User, Job, Candidate_profile } = require('../models');
 
 // ==============================================================================
 // PRIVATE HELPER
@@ -186,6 +186,17 @@ exports.getCvFile = async (userId, applicationId, mode = 'view') => {
     if (!app)        throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.');
     if (!app.cv_url) throw new Error('Ứng viên này chưa đính kèm CV.');
 
+    // ✅ Nếu là URL cloud (http/https) → trả về URL luôn, không đọc file local
+    if (app.cv_url.startsWith('http://') || app.cv_url.startsWith('https://')) {
+        return { 
+            fileUrl:  app.cv_url, 
+            fileName: path.basename(app.cv_url), 
+            mode,
+            isRemote: true 
+        };
+    }
+
+    // local file
     const filePath = path.join(__dirname, '..', app.cv_url);
     if (!fs.existsSync(filePath)) throw new Error('File CV không tồn tại trên server.');
 
