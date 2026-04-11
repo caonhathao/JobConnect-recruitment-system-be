@@ -1,0 +1,37 @@
+const express = require('express');
+const router  = express.Router();
+const { protect } = require('../middleware/authMiddleware');
+const ApplicationController = require('../controllers/ApplicationController');
+
+router.use(protect);
+
+/**
+ * @route   POST /api/applications
+ * @desc    Nộp đơn ứng tuyển một công việc
+ * @body    { job_id, resume_id?, cover_letter? }
+ * @access  Private
+ */
+router.post('/', ApplicationController.applyJob);
+
+/**
+ * @route   GET /api/applications
+ * @desc    Danh sách tất cả đơn ứng tuyển + trạng thái tiến trình
+ * @access  Private
+ */
+router.get('/', ApplicationController.getMyApplications);
+
+/**
+ * @route   GET /api/applications/:id
+ * @desc    Chi tiết một đơn ứng tuyển
+ * @access  Private
+ */
+router.get('/:id', ApplicationController.getApplicationDetail);
+
+/**
+ * @route   DELETE /api/applications/:id
+ * @desc    Rút đơn ứng tuyển (chỉ khi status = "submitted")
+ * @access  Private
+ */
+router.delete('/:id', ApplicationController.withdrawApplication);
+
+module.exports = router;
