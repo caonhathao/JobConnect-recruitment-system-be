@@ -31,7 +31,8 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
     if (!profile || !profile.skills || profile.skills.length === 0) {
         return await Job.findAll({
             where: { status: 'approved', ...excludeClause },
-            include: [{ model: Company, as: 'company', attributes: ['name', 'logo_url', 'city'] }],
+            include: [{ model: Company, as: 'company', attributes: ['name', 'logo_url', 'city'] },
+            {model: Skill, as: 'skills', through: { attributes: [] }, attributes: ['id', 'name']}],
             order: [['createdAt', 'DESC']],
             limit: safeLimit
         });
@@ -78,6 +79,11 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
                 title:          job.title,
                 location:       job.location,
                 job_type:       job.job_type,
+                job_level:      job.job_level,
+                benefits:       job.benefits,
+                description:    job.description,
+                requirements:   job.requirements,
+                skills:         job.skills,
                 salary_min:     job.salary_min,
                 salary_max:     job.salary_max,
                 deadline:       job.deadline,

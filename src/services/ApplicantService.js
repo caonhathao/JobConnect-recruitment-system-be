@@ -1,7 +1,7 @@
 const path = require('path');
 const fs   = require('fs');
 const { Op } = require('sequelize');
-const { Company, Application, User, Job, Candidate_profile } = require('../models');
+const { Company, Application, User, Job, Candidate_profile, Experience, Education, Skill } = require('../models');
 
 // ==============================================================================
 // PRIVATE HELPER
@@ -79,7 +79,7 @@ exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
                 avatar_url: app.candidate?.avatar_url,
                 headline:   app.candidate?.candidateProfile?.headline,
                 bio:        app.candidate?.candidateProfile?.bio,
-                linkedin:   app.candidate?.candidateProfile?.linkedin_url
+                linkedin_url: app.candidate?.candidateProfile?.linkedin_url
             }
         }))
     };
@@ -110,7 +110,16 @@ exports.getAllApplicants = async (userId, filters = {}) => {
             {
                 model: User,
                 as: 'candidate',
-                attributes: ['id', 'full_name', 'email', 'phone', 'avatar_url']
+                attributes: ['id', 'full_name', 'email', 'phone', 'avatar_url'],
+                include: [{ 
+                    model: Candidate_profile, 
+                    as: 'candidateProfile',
+                    include: [
+                        { model: Experience, as: 'experiences' },
+                        { model: Education, as: 'educations' },
+                        { model: Skill, as: 'skills', through: { attributes: [] } }
+                    ]
+                }]
             },
             {
                 model: Job,
@@ -118,7 +127,11 @@ exports.getAllApplicants = async (userId, filters = {}) => {
                 attributes: ['id', 'title']
             }
         ],
-        order:    [['applied_at', 'DESC']],
+        order:    [
+            ['applied_at', 'DESC'],
+            [{ model: User, as: 'candidate' }, { model: Candidate_profile, as: 'candidateProfile' }, { model: Experience, as: 'experiences' }, 'start_date', 'DESC'],
+            [{ model: User, as: 'candidate' }, { model: Candidate_profile, as: 'candidateProfile' }, { model: Education, as: 'educations' }, 'start_date', 'DESC']
+        ],
         limit:    pageSize,
         offset,
         distinct: true
@@ -135,11 +148,12 @@ exports.getAllApplicants = async (userId, filters = {}) => {
             applied_at:     app.applied_at,
             job:       { id: app.job?.id, title: app.job?.title },
             candidate: {
-                id:         app.candidate?.id,
-                full_name:  app.candidate?.full_name,
-                email:      app.candidate?.email,
-                phone:      app.candidate?.phone,
-                avatar_url: app.candidate?.avatar_url
+                id:               app.candidate?.id,
+                full_name:        app.candidate?.full_name,
+                email:            app.candidate?.email,
+                phone:            app.candidate?.phone,
+                avatar_url:       app.candidate?.avatar_url,
+                candidateProfile: app.candidate?.candidateProfile
             }
         }))
     };
@@ -159,7 +173,15 @@ exports.getApplicationDetail = async (userId, applicationId) => {
                 model: User,
                 as: 'candidate',
                 attributes: ['id', 'full_name', 'email', 'phone', 'avatar_url'],
-                include: [{ model: Candidate_profile, as: 'candidateProfile' }]
+                include: [{ 
+                    model: Candidate_profile, 
+                    as: 'candidateProfile',
+                    include: [
+                        { model: Experience, as: 'experiences' },
+                        { model: Education, as: 'educations' },
+                        { model: Skill, as: 'skills', through: { attributes: [] } }
+                    ]
+                }]
             },
             {
                 model: Job,
