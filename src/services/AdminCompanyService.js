@@ -1,9 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
-// ==============================================================================
-// 1. DANH SÁCH CÔNG TY CẦN DUYỆT (status = pending)
-// ==============================================================================
 exports.getPendingCompanies = async (filters = {}) => {
     const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
     const pageNumber = Math.max(1, parseInt(filters.page) || 1);
@@ -15,10 +11,10 @@ exports.getPendingCompanies = async (filters = {}) => {
             where: { status: 'pending' },
             include: {
                 user: {
-                    select: { id: true, full_name: true, email: true, phone: true, created_at: true }
+                    select: { id: true, fullName: true, email: true, phone: true, createdAt: true }
                 }
             },
-            orderBy: { created_at: 'asc' }, // FIFO
+            orderBy: { createdAt: 'asc' },
             take: pageSize,
             skip
         })
@@ -32,9 +28,6 @@ exports.getPendingCompanies = async (filters = {}) => {
     };
 };
 
-// ==============================================================================
-// 2. DANH SÁCH TẤT CẢ CÔNG TY (lọc theo status)
-// ==============================================================================
 exports.getAllCompanies = async (filters = {}) => {
     const {
         status,
@@ -50,7 +43,6 @@ exports.getAllCompanies = async (filters = {}) => {
     const where = {};
     if (status) where.status = status;
 
-    // Tìm kiếm theo tên công ty hoặc thành phố
     if (keyword) {
         where.OR = [
             { name: { contains: keyword.trim(), mode: 'insensitive' } },
@@ -64,10 +56,10 @@ exports.getAllCompanies = async (filters = {}) => {
             where,
             include: {
                 user: {
-                    select: { id: true, full_name: true, email: true, phone: true }
+                    select: { id: true, fullName: true, email: true, phone: true }
                 }
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
             take: pageSize,
             skip
         })
@@ -81,14 +73,6 @@ exports.getAllCompanies = async (filters = {}) => {
     };
 };
 
-// ==============================================================================
-// 3. DUYỆT CÔNG TY (approved / rejected)
-// ==============================================================================
-/**
- * @param {string} companyId
- * @param {'approved' | 'rejected'} action
- * @param {string} [reason] - Lý do từ chối (bắt buộc khi rejected)
- */
 exports.reviewCompany = async (companyId, action, reason) => {
     if (!['approved', 'rejected'].includes(action)) {
         throw new Error('Hành động không hợp lệ. Chỉ chấp nhận: approved hoặc rejected.');
@@ -108,12 +92,12 @@ exports.reviewCompany = async (companyId, action, reason) => {
         where: { id: companyId },
         data: {
             status: action,
-            rejection_reason: action === 'rejected' ? reason.trim() : null
+            rejectionReason: action === 'rejected' ? reason.trim() : null
         }
     });
 
     return await prisma.company.findUnique({
         where: { id: companyId },
-        include: { user: { select: { full_name: true, email: true } } }
+        include: { user: { select: { fullName: true, email: true } } }
     });
 };

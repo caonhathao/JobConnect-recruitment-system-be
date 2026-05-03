@@ -1,66 +1,66 @@
 model Candidate_profile {
-  id           String   @id @default(uuid()) @map("id")
-  user_id      String   @unique @map("user_id")
-  headline     String?  @map("headline")
-  summary      String?  @db.Text @map("summary")
-  phone        String?  @map("phone")
-  address      String?  @map("address")
-  city         String?  @map("city")
-  date_of_birth DateTime? @map("date_of_birth")
-  gender       String?  @map("gender")
-  created_at   DateTime @default(now()) @map("created_at")
-  updated_at   DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  headline     String?
+  summary      String?   @db.Text
+  phone        String?
+  address      String?
+  city         String?
+  dateOfBirth  DateTime? @map("date_of_birth")
+  gender       String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  user         User            @relation("UserToCandidateProfile", fields: [user_id], references: [id], onDelete: Cascade)
-  experiences  Experience[]   @relation("CandidateProfileToExperience")
-  educations   Education[]   @relation("CandidateProfileToEducation")
-  skills       Candidate_skill[] @relation("CandidateProfileToCandidateSkill")
+  user        User              @relation("UserToCandidateProfile", fields: [userId], references: [id], onDelete: Cascade)
+  experiences Experience[]      @relation("CandidateProfileToExperience")
+  educations  Education[]       @relation("CandidateProfileToEducation")
+  skills      Candidate_skill[] @relation("CandidateProfileToCandidateSkill")
 
-  @@index([user_id])
+  @@index([userId])
   @@map("candidate_profiles")
 }
 
 model Candidate_skill {
-  profile_id String @map("profile_id")
-  skill_id   String @map("skill_id")
+  profileId String @map("profile_id")
+  skillId   String @map("skill_id")
 
-  profile Candidate_profile @relation("CandidateProfileToCandidateSkill", fields: [profile_id], references: [id], onDelete: Cascade)
-  skill   Skill             @relation("SkillToCandidateSkill", fields: [skill_id], references: [id], onDelete: Cascade)
+  profile Candidate_profile @relation("CandidateProfileToCandidateSkill", fields: [profileId], references: [id], onDelete: Cascade)
+  skill   Skill             @relation("SkillToCandidateSkill", fields: [skillId], references: [id], onDelete: Cascade)
 
-  @@id([profile_id, skill_id])
-  @@index([profile_id, skill_id])
+  @@id([profileId, skillId])
+  @@index([profileId, skillId])
   @@map("candidate_skills")
 }
 
 model Experience {
-  id          String   @id @default(uuid()) @map("id")
-  profile_id  String   @map("profile_id")
-  title       String   @map("title")
-  company     String   @map("company")
-  start_date  DateTime @map("start_date")
-  end_date    DateTime? @map("end_date")
-  description String?  @db.Text @map("description")
-  created_at  DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  title       String
+  company     String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime? @map("end_date")
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  profile Candidate_profile @relation("CandidateProfileToExperience", fields: [profile_id], references: [id], onDelete: Cascade)
+  profile Candidate_profile @relation("CandidateProfileToExperience", fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@index([profile_id])
+  @@index([profileId])
   @@map("experiences")
 }
 
 model Education {
-  id          String   @id @default(uuid()) @map("id")
-  profile_id  String   @map("profile_id")
-  school      String   @map("school")
-  degree      String   @map("degree")
-  field       String?  @map("field")
-  start_date  DateTime @map("start_date")
-  end_date    DateTime? @map("end_date")
-  created_at  DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  profileId String   @map("profile_id")
+  school    String
+  degree    String
+  field     String?
+  startDate DateTime @map("start_date")
+  endDate   DateTime? @map("end_date")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  profile Candidate_profile @relation("CandidateProfileToEducation", fields: [profile_id], references: [id], onDelete: Cascade)
+  profile Candidate_profile @relation("CandidateProfileToEducation", fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@index([profile_id])
+  @@index([profileId])
   @@map("education")
 }

@@ -1,5 +1,4 @@
 require('dotenv').config();
-const sequelize = require('./src/config/database'); // Kết nối Database
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -83,13 +82,8 @@ app.get('/', (req, res) => {
 
 
 
-// Đồng bộ Database và khởi động Server
-sequelize.sync({ alter: true }).then(() => {
-    console.log('✅ Database & Tables synced!');
-    app.listen(PORT, () => {
-        console.log(`✅ Server is running on port: http://localhost:${PORT}`);
-    });
-}).catch(err => {
-    console.error('❌ Failed to sync database:', err);
+// Khởi động Server (Database migrations handled via: npx prisma db push)
+app.listen(PORT, () => {
+    console.log(`✅ Server is running on port: http://localhost:${PORT}`);
 });
 

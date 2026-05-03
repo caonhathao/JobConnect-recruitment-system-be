@@ -1,25 +1,18 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
-// ==============================================================================
-// PRIVATE HELPERS
-// ==============================================================================
-/**
- * Lấy company của recruiter, throw nếu chưa có hoặc chưa được duyệt
- */
 const _getApprovedCompany = async (userId) => {
-    const company = await prisma.company.findUnique({ where: { user_id: userId } });
+    const company = await prisma.company.findUnique({ where: { userId } });
     if (!company) throw new Error('Bạn chưa có hồ sơ công ty.');
     if (company.status !== 'approved') throw new Error('Hồ sơ công ty chưa được Admin duyệt. Bạn chưa thể đăng tin.');
     return company;
 };
 
 const _getOwnJob = async (userId, jobId) => {
-    const company = await prisma.company.findUnique({ where: { user_id: userId } });
+    const company = await prisma.company.findUnique({ where: { userId } });
     if (!company) throw new Error('Bạn chưa có hồ sơ công ty.');
 
     const job = await prisma.job.findFirst({
-        where: { id: jobId, company_id: company.id },
+        where: { id: jobId, companyId: company.id },
         include: {
             skills: {
                 include: { skill: { select: { id: true, name: true } } }
@@ -28,13 +21,11 @@ const _getOwnJob = async (userId, jobId) => {
         }
     });
     if (!job) throw new Error('Không tìm thấy tin đăng hoặc bạn không có quyền thao tác.');
-    
-    // Transform skills to match old Sequelize format
+
     job.skills = job.skills.map(js => js.skill);
     return job;
 };
 
-// Helper dùng chung cho createJob và updateJob
 const _attachSkills = async (jobId, skills) => {
     const skillIds = [];
     for (const name of skills) {
@@ -45,20 +36,17 @@ const _attachSkills = async (jobId, skills) => {
             update: {},
             create: { name: cleanName }
         });
-        skillIds.push({ skill_id: skill.id });
+        skillIds.push({ skillId: skill.id });
     }
 
-    await prisma.job_skill.deleteMany({ where: { job_id: jobId } });
+    await prisma.job_skill.deleteMany({ where: { jobId } });
     if (skillIds.length > 0) {
         await prisma.job_skill.createMany({
-            data: skillIds.map(s => ({ job_id: jobId, skill_id: s.skill_id }))
+            data: skillIds.map(s => ({ jobId, skillId: s.skillId }))
         });
     }
 };
 
-// ==============================================================================
-// 1. TẠO TIN TUYỂN DỤNG MỚI
-// ==============================================================================
 exports.createJob = async (userId, data) => {
     const company = await _getApprovedCompany(userId);
 
@@ -72,22 +60,21 @@ exports.createJob = async (userId, data) => {
 
     const job = await prisma.job.create({
         data: {
-            company_id: company.id,
+            companyId: company.id,
             title: title.trim(),
             description: description?.trim() || null,
             requirements: requirements?.trim() || null,
             benefits: benefits?.trim() || null,
-            salary_min: salary_min || null,
-            salary_max: salary_max || null,
+            salaryMin: salary_min || null,
+            salaryMax: salary_max || null,
             location: location?.trim() || null,
-            job_type: job_type?.trim() || null,
-            job_level: job_level?.trim() || null,
+            jobType: job_type?.trim() || null,
+            jobLevel: job_level?.trim() || null,
             deadline: deadline || null,
             status: 'pending'
         }
     });
 
-    // Attach skills
     if (skills.length > 0) {
         await _attachSkills(job.id, skills);
     }
@@ -95,18 +82,15 @@ exports.createJob = async (userId, data) => {
     return await _getOwnJob(userId, job.id);
 };
 
-// ==============================================================================
-// 2. DANH SÁCH TIN ĐĂNG CỦA CÔNG TY
-// ==============================================================================
 exports.getMyJobs = async (userId, filters = {}) => {
-    const company = await prisma.company.findUnique({ where: { user_id: userId } });
+    const company = await prisma.company.findUnique({ where: { userId } });
     if (!company) throw new Error('Bạn chưa có hồ sơ công ty.');
 
     const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
     const pageNumber = Math.max(1, parseInt(filters.page) || 1);
     const skip = (pageNumber - 1) * pageSize;
 
-    const where = { company_id: company.id };
+    const where = { companyId: company.id };
     if (filters.status) where.status = filters.status;
 
     const [count, jobs] = await Promise.all([
@@ -118,13 +102,12 @@ exports.getMyJobs = async (userId, filters = {}) => {
                     include: { skill: { select: { id: true, name: true } } }
                 }
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
             take: pageSize,
             skip
         })
     ]);
 
-    // Transform skills
     const transformedJobs = jobs.map(job => ({
         ...job,
         skills: job.skills.map(js => js.skill)
@@ -138,16 +121,10 @@ exports.getMyJobs = async (userId, filters = {}) => {
     };
 };
 
-// ==============================================================================
-// 3. XEM CHI TIẾT MỘT TIN ĐĂNG
-// ==============================================================================
 exports.getJobDetail = async (userId, jobId) => {
     return await _getOwnJob(userId, jobId);
 };
 
-// ==============================================================================
-// 4. CẬP NHẬT TIN ĐĂNG
-// ==============================================================================
 exports.updateJob = async (userId, jobId, data) => {
     const job = await _getOwnJob(userId, jobId);
 
@@ -170,16 +147,16 @@ exports.updateJob = async (userId, jobId, data) => {
     if (description !== undefined) updateData.description = description?.trim() || null;
     if (requirements !== undefined) updateData.requirements = requirements?.trim() || null;
     if (benefits !== undefined) updateData.benefits = benefits?.trim() || null;
-    if (salary_min !== undefined) updateData.salary_min = salary_min;
-    if (salary_max !== undefined) updateData.salary_max = salary_max;
+    if (salary_min !== undefined) updateData.salaryMin = salary_min;
+    if (salary_max !== undefined) updateData.salaryMax = salary_max;
     if (location !== undefined) updateData.location = location?.trim() || null;
-    if (job_type !== undefined) updateData.job_type = job_type?.trim() || null;
-    if (job_level !== undefined) updateData.job_level = job_level?.trim() || null;
+    if (job_type !== undefined) updateData.jobType = job_type?.trim() || null;
+    if (job_level !== undefined) updateData.jobLevel = job_level?.trim() || null;
     if (deadline !== undefined) updateData.deadline = deadline;
 
     if (Object.keys(updateData).length > 0 && job.status !== 'paused') {
         updateData.status = 'pending';
-        updateData.rejection_reason = null;
+        updateData.rejectionReason = null;
     }
 
     await prisma.job.update({
@@ -187,7 +164,6 @@ exports.updateJob = async (userId, jobId, data) => {
         data: updateData
     });
 
-    // Update skills
     if (Array.isArray(skills) && skills.length > 0) {
         await _attachSkills(jobId, skills);
     }
@@ -195,9 +171,6 @@ exports.updateJob = async (userId, jobId, data) => {
     return await _getOwnJob(userId, jobId);
 };
 
-// ==============================================================================
-// 5. TẠM DỪNG / MỞ LẠI TIN ĐĂNG
-// ==============================================================================
 exports.togglePauseJob = async (userId, jobId) => {
     const job = await _getOwnJob(userId, jobId);
 
@@ -219,9 +192,6 @@ exports.togglePauseJob = async (userId, jobId) => {
     }
 };
 
-// ==============================================================================
-// 6. XÓA TIN ĐĂNG
-// ==============================================================================
 exports.deleteJob = async (userId, jobId) => {
     const job = await _getOwnJob(userId, jobId);
     await prisma.job.delete({ where: { id: jobId } });

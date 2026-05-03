@@ -1,9 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
-// ==============================================================================
-// 1. DANH SÁCH TIN TUYỂN DỤNG ĐANG CHỜ DUYỆT
-// ==============================================================================
 exports.getPendingJobs = async (filters = {}) => {
     const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
     const pageNumber = Math.max(1, parseInt(filters.page) || 1);
@@ -16,21 +12,20 @@ exports.getPendingJobs = async (filters = {}) => {
             include: {
                 company: {
                     select: {
-                        id: true, name: true, logo_url: true, city: true,
-                        user: { select: { full_name: true, email: true } }
+                        id: true, name: true, logoUrl: true, city: true,
+                        user: { select: { fullName: true, email: true } }
                     }
                 },
                 skills: {
                     include: { skill: { select: { id: true, name: true } } }
                 }
             },
-            orderBy: { created_at: 'asc' }, // FIFO
+            orderBy: { createdAt: 'asc' },
             take: pageSize,
             skip
         })
     ]);
 
-    // Transform skills
     const transformedJobs = jobs.map(job => ({
         ...job,
         skills: job.skills.map(js => js.skill)
@@ -44,9 +39,6 @@ exports.getPendingJobs = async (filters = {}) => {
     };
 };
 
-// ==============================================================================
-// 2. DANH SÁCH TẤT CẢ TIN TUYỂN DỤNG (lọc theo status)
-// ==============================================================================
 exports.getAllJobs = async (filters = {}) => {
     const {
         status,
@@ -68,16 +60,15 @@ exports.getAllJobs = async (filters = {}) => {
         prisma.job.findMany({
             where,
             include: {
-                company: { select: { id: true, name: true, logo_url: true, city: true } },
+                company: { select: { id: true, name: true, logoUrl: true, city: true } },
                 skills: { include: { skill: { select: { id: true, name: true } } } }
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
             take: pageSize,
             skip
         })
     ]);
 
-    // Transform skills
     const transformedJobs = jobs.map(job => ({
         ...job,
         skills: job.skills.map(js => js.skill)
@@ -91,34 +82,22 @@ exports.getAllJobs = async (filters = {}) => {
     };
 };
 
-// ==============================================================================
-// 3. XEM CHI TIẾT MỘT TIN TUYỂN DỤNG
-// ==============================================================================
 exports.getJobDetail = async (jobId) => {
     const job = await prisma.job.findUnique({
         where: { id: jobId },
         include: {
             company: {
-                include: { user: { select: { full_name: true, email: true, phone: true } } }
+                include: { user: { select: { fullName: true, email: true, phone: true } } }
             },
             skills: { include: { skill: true } }
         }
     });
     if (!job) throw new Error('Tin tuyển dụng không tồn tại.');
 
-    // Transform skills
     job.skills = job.skills.map(js => js.skill);
     return job;
 };
 
-// ==============================================================================
-// 4. DUYỆT TIN TUYỂN DỤNG (approved / rejected)
-// ==============================================================================
-/**
- * @param {string} jobId
- * @param {'approved' | 'rejected'} action
- * @param {string} [reason] - Bắt buộc khi rejected
- */
 exports.reviewJob = async (jobId, action, reason) => {
     if (!['approved', 'rejected'].includes(action)) {
         throw new Error('Hành động không hợp lệ. Chỉ chấp nhận: approved hoặc rejected.');
@@ -138,7 +117,7 @@ exports.reviewJob = async (jobId, action, reason) => {
         where: { id: jobId },
         data: {
             status: action,
-            rejection_reason: action === 'rejected' ? reason.trim() : null
+            rejectionReason: action === 'rejected' ? reason.trim() : null
         }
     });
 
@@ -148,9 +127,6 @@ exports.reviewJob = async (jobId, action, reason) => {
     });
 };
 
-// ==============================================================================
-// 5. XÓA JOB VI PHẠM (Admin — kể cả job đã approved)
-// ==============================================================================
 exports.deleteJob = async (jobId) => {
     const job = await prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new Error('Tin tuyển dụng không tồn tại.');

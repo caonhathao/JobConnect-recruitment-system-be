@@ -1,19 +1,15 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
-// ==============================================================================
-// 1. LẤY CHI TIẾT 1 CÔNG VIỆC (PUBLIC)
-// ==============================================================================
 exports.getJobDetail = async (jobId) => {
     const job = await prisma.job.findFirst({
-        where: { 
-            id: jobId, 
-            status: 'approved' // Khách chỉ thấy job đã duyệt
+        where: {
+            id: jobId,
+            status: 'approved'
         },
         include: {
             company: {
                 select: {
-                    id: true, name: true, logo_url: true, city: true,
+                    id: true, name: true, logoUrl: true, city: true,
                     address: true, website: true, size: true, description: true
                 }
             },
@@ -27,29 +23,25 @@ exports.getJobDetail = async (jobId) => {
         throw new Error('Không tìm thấy tin tuyển dụng hoặc tin đã bị khóa/gỡ bỏ.');
     }
 
-    // Transform skills to match old Sequelize format
     job.skills = job.skills.map(js => js.skill);
     return job;
 };
 
-// ==============================================================================
-// 2. LẤY CHI TIẾT THÔNG TIN 1 CÔNG TY VÀ CÁC JOB CỦA HỌ (PUBLIC)
-// ==============================================================================
 exports.getCompanyDetail = async (companyId) => {
     const company = await prisma.company.findFirst({
         where: { id: companyId, status: 'approved' },
         select: {
             id: true, name: true, description: true, website: true,
-            logo_url: true, address: true, city: true, size: true,
-            created_at: true,
+            logoUrl: true, address: true, city: true, size: true,
+            createdAt: true,
             jobs: {
                 where: { status: 'approved' },
                 select: {
                     id: true, title: true, location: true,
-                    salary_min: true, salary_max: true,
-                    job_type: true, created_at: true, deadline: true, job_level: true
+                    salaryMin: true, salaryMax: true,
+                    jobType: true, createdAt: true, deadline: true, jobLevel: true
                 },
-                orderBy: { created_at: 'desc' }
+                orderBy: { createdAt: 'desc' }
             }
         }
     });
