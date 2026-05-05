@@ -18,46 +18,50 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
     });
     const appliedJobIds = appliedApplications.map(a => a.jobId);
 
-    const excludeClause = appliedJobIds.length > 0
-        ? { id: { notIn: appliedJobIds } }
-        : {};
-
     if (!profile || !profile.skills || profile.skills.length === 0) {
+        const where = { status: 'approved' };
+        if (appliedJobIds.length > 0) where.id = { notIn: appliedJobIds };
+
         const jobs = await prisma.job.findMany({
-            where: { status: 'approved', ...excludeClause },
+            where,
             include: {
                 company: { select: { name: true, logoUrl: true, city: true } },
-                skills: {
-                    include: { skill: { select: { id: true, name: true } } }
-                }
+                skills: { include: { skill: { select: { id: true, name: true } } } }
             },
             orderBy: { createdAt: 'desc' },
             take: safeLimit
         });
 
         return jobs.map(job => ({
-            ...job,
-            skills: job.skills.map(js => js.skill)
+            id: job.id,
+            title: job.title,
+            location: job.location,
+            jobType: job.jobType,
+            jobLevel: job.jobLevel,
+            benefits: job.benefits,
+            description: job.description,
+            requirements: job.requirements,
+            skills: job.skills.map(js => js.skill),
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+            deadline: job.deadline,
+            company: job.company
         }));
     }
 
     const candidateSkillIds = profile.skills.map(s => s.skill.id);
 
+    const where = {
+        status: 'approved',
+        skills: { some: { skillId: { in: candidateSkillIds } } }
+    };
+    if (appliedJobIds.length > 0) where.id = { notIn: appliedJobIds };
+
     const jobs = await prisma.job.findMany({
-        where: {
-            status: 'approved',
-            ...excludeClause,
-            skills: {
-                some: {
-                    skillId: { in: candidateSkillIds }
-                }
-            }
-        },
+        where,
         include: {
             company: { select: { name: true, logoUrl: true, city: true } },
-            skills: {
-                include: { skill: { select: { id: true, name: true } } }
-            }
+            skills: { include: { skill: { select: { id: true, name: true } } } }
         },
         take: safeLimit * 3
     });
@@ -75,21 +79,21 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
                 id: job.id,
                 title: job.title,
                 location: job.location,
-                job_type: job.jobType,
-                job_level: job.jobLevel,
+                jobType: job.jobType,
+                jobLevel: job.jobLevel,
                 benefits: job.benefits,
                 description: job.description,
                 requirements: job.requirements,
                 skills: job.skills.map(js => js.skill),
-                salary_min: job.salaryMin,
-                salary_max: job.salaryMax,
+                salaryMin: job.salaryMin,
+                salaryMax: job.salaryMax,
                 deadline: job.deadline,
                 company: job.company,
-                matched_skills: matchedSkills,
-                match_count: matchCount,
-                match_percent: matchPercent
+                matchedSkills,
+                matchCount,
+                matchPercent
             };
         })
-        .sort((a, b) => b.match_count - a.match_count)
+        .sort((a, b) => b.matchCount - a.matchCount)
         .slice(0, safeLimit);
 };

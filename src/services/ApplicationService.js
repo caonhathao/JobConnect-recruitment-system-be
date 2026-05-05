@@ -10,18 +10,18 @@ const _getActiveJob = async (jobId) => {
 };
 
 exports.applyJob = async (userId, data) => {
-    const { job_id, resume_id, cover_letter } = data;
+    const { jobId, resumeId, coverLetter } = data;
 
-    if (!job_id) throw new Error('Vui lòng chọn công việc muốn ứng tuyển.');
+    if (!jobId) throw new Error('Vui lòng chọn công việc muốn ứng tuyển.');
 
-    await _getActiveJob(job_id);
+    await _getActiveJob(jobId);
 
-    const existed = await prisma.application.findFirst({ where: { userId, jobId: job_id } });
+    const existed = await prisma.application.findFirst({ where: { userId, jobId } });
     if (existed) throw new Error('Bạn đã nộp đơn ứng tuyển vị trí này rồi.');
 
     let resumeUrl = null;
-    if (resume_id) {
-        const resume = await prisma.resume.findFirst({ where: { id: resume_id, userId } });
+    if (resumeId) {
+        const resume = await prisma.resume.findFirst({ where: { id: resumeId, userId } });
         if (!resume) throw new Error('CV không tồn tại hoặc không thuộc về bạn.');
         resumeUrl = resume.fileUrl;
     } else {
@@ -29,19 +29,19 @@ exports.applyJob = async (userId, data) => {
         if (defaultResume) resumeUrl = defaultResume.fileUrl;
     }
 
-    const job = await prisma.job.findUnique({ where: { id: job_id } });
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     const application = await prisma.application.create({
         data: {
             userId,
-            jobId: job_id,
+            jobId,
             companyId: job?.companyId || null,
             fullName: user?.fullName || '',
             email: user?.email || '',
             phone: user?.phone || '',
             resumeUrl: resumeUrl,
-            coverLetter: cover_letter?.trim() || null,
+            coverLetter: coverLetter?.trim() || null,
             status: 'submitted'
         }
     });
@@ -83,17 +83,17 @@ exports.getMyApplications = async (userId, filters = {}) => {
         applications: applications.map(app => ({
             id: app.id,
             status: app.status,
-            cover_letter: app.coverLetter,
-            resume_url: app.resumeUrl,
-            applied_at: app.createdAt,
-            created_at: app.createdAt,
+            coverLetter: app.coverLetter,
+            resumeUrl: app.resumeUrl,
+            appliedAt: app.createdAt,
+            createdAt: app.createdAt,
             job: {
                 id: app.job?.id,
                 title: app.job?.title,
                 location: app.job?.location,
-                job_type: app.job?.jobType,
-                salary_min: app.job?.salaryMin,
-                salary_max: app.job?.salaryMax,
+                jobType: app.job?.jobType,
+                salaryMin: app.job?.salaryMin,
+                salaryMax: app.job?.salaryMax,
                 deadline: app.job?.deadline,
                 company: app.job?.company
             }

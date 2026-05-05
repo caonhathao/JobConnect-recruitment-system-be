@@ -72,10 +72,10 @@ exports.toggleLockUser = async (id) => {
 
     return {
         id: user.id,
-        full_name: user.fullName,
+        fullName: user.fullName,
         email: user.email,
         role: user.role,
-        is_active: newStatus,
+        isActive: newStatus,
         message: newStatus ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.'
     };
 };

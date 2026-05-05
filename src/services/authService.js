@@ -6,9 +6,9 @@ const bcrypt = require('bcryptjs');
 exports.register = async (data) => {
     const email = data.email?.trim();
     const phone = data.phone?.trim();
-    const fullName = data.full_name?.trim();
+    const fullName = data.fullName?.trim();
     const password = data.password;
-    const companyName = data.company_name?.trim();
+    const companyName = data.companyName?.trim();
     const address = data.address?.trim();
 
     if (!/^[a-zA-Z0-9.]+@gmail\.com$/.test(email)) {
@@ -107,7 +107,7 @@ exports.register = async (data) => {
                 id: user.id,
                 email: user.email,
                 phone: user.phone,
-                full_name: user.fullName,
+                fullName: user.fullName,
                 role: user.role,
                 accessToken,
                 refreshToken
@@ -143,9 +143,9 @@ exports.login = async ({ email, password }) => {
         id: user.id,
         email: user.email,
         phone: user.phone,
-        full_name: user.fullName,
+        fullName: user.fullName,
         role: user.role,
-        avatar_url: user.avatarUrl || null,
+        avatarUrl: user.avatarUrl || null,
         accessToken,
         refreshToken
     };

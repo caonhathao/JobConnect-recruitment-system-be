@@ -102,7 +102,7 @@ exports.getJobsByType = async () => {
     });
 
     return rows.map(r => ({
-        job_type: r.jobType || 'Khác',
+        jobType: r.jobType || 'Khác',
         count: r._count.id
     })).sort((a, b) => b.count - a.count);
 };
@@ -115,7 +115,7 @@ exports.getJobsByLevel = async () => {
     });
 
     return rows.map(r => ({
-        job_level: r.jobLevel || 'Khác',
+        jobLevel: r.jobLevel || 'Khác',
         count: r._count.id
     })).sort((a, b) => b.count - a.count);
 };

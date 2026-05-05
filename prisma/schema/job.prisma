@@ -25,6 +25,7 @@ model Job {
 
   @@index([companyId])
   @@map("jobs")
+  jobVectors JobVectors[] @relation("JobToExperience")
 }
 
 model Job_skill {

@@ -22,12 +22,12 @@ exports.getDashboard = async (userId) => {
 
     if (jobIds.length === 0) {
         return {
-            company_name: company.name,
-            company_status: company.status,
+            companyName: company.name,
+            companyStatus: company.status,
             jobs: jobStats,
             applications: { total: 0, submitted: 0, under_review: 0, interview: 0, accepted: 0, rejected: 0 },
-            success_rate: '0%',
-            recent_applications: []
+            successRate: '0%',
+            recentApplications: []
         };
     }
 
@@ -61,17 +61,17 @@ exports.getDashboard = async (userId) => {
     });
 
     return {
-        company_name: company.name,
-        company_status: company.status,
+        companyName: company.name,
+        companyStatus: company.status,
         jobs: jobStats,
         applications: appStats,
-        success_rate: successRate,
-        recent_applications: recent.map(a => ({
+        successRate: successRate,
+        recentApplications: recent.map(a => ({
             id: a.id,
             status: a.status,
-            applied_at: a.createdAt,
-            candidate: { full_name: a.user?.fullName, email: a.user?.email, avatar_url: a.user?.avatarUrl },
-            job_title: a.job?.title
+            appliedAt: a.createdAt,
+            candidate: { fullName: a.user?.fullName, email: a.user?.email, avatarUrl: a.user?.avatarUrl },
+            jobTitle: a.job?.title
         }))
     };
 };

@@ -15,41 +15,41 @@ exports.getProfile = async (userId) => {
     }
 
     return {
-        full_name: profile.user?.fullName,
+        fullName: profile.user?.fullName,
         phone: profile.user?.phone,
         role: profile.user?.role,
-        avatar_url: profile.user?.avatarUrl,
+        avatarUrl: profile.user?.avatarUrl,
         headline: profile.headline,
         summary: profile.summary,
         address: profile.address,
         city: profile.city,
-        date_of_birth: profile.dateOfBirth,
+        dateOfBirth: profile.dateOfBirth,
         gender: profile.gender,
-        created_at: profile.createdAt,
-        updated_at: profile.updatedAt
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt
     };
 };
 
 exports.updateProfile = async (userId, data) => {
-    const { full_name, phone, summary, address, city, date_of_birth, gender, headline, linkedin_url } = data;
+    const { fullName, phone, summary, address, city, dateOfBirth, gender, headline, linkedinUrl } = data;
 
     if (phone && !/^0\d{9}$/.test(phone)) {
         throw new Error('Số điện thoại phải bắt đầu bằng số 0 và có đúng 10 chữ số');
     }
 
-    if (linkedin_url && !linkedin_url.startsWith('https://')) {
+    if (linkedinUrl && !linkedinUrl.startsWith('https://')) {
         throw new Error('LinkedIn URL không hợp lệ cần thêm https://');
     }
 
-    if (full_name !== undefined) {
-        const trimmed = full_name.trim();
+    if (fullName !== undefined) {
+        const trimmed = fullName.trim();
         if (!trimmed) throw new Error('Họ tên không được để trống');
         if (trimmed.length < 2 || trimmed.length > 50) throw new Error('Họ tên phải từ 2 đến 50 ký tự');
         if (!/^[a-zA-ZÀ-ỹ\s]+$/.test(trimmed)) throw new Error('Họ tên chỉ được chứa chữ cái và khoảng trắng');
     }
 
     const userUpdateData = {};
-    if (full_name) userUpdateData.fullName = full_name;
+    if (fullName) userUpdateData.fullName = fullName;
     if (phone) userUpdateData.phone = phone;
 
     if (Object.keys(userUpdateData).length > 0) {
@@ -64,7 +64,7 @@ exports.updateProfile = async (userId, data) => {
     if (summary !== undefined) profileUpdateData.summary = summary;
     if (address !== undefined) profileUpdateData.address = address;
     if (city !== undefined) profileUpdateData.city = city;
-    if (date_of_birth !== undefined) profileUpdateData.dateOfBirth = date_of_birth;
+    if (dateOfBirth !== undefined) profileUpdateData.dateOfBirth = dateOfBirth;
     if (gender !== undefined) profileUpdateData.gender = gender;
 
     const existingProfile = await prisma.candidate_profile.findUnique({
@@ -95,13 +95,13 @@ exports.updateProfile = async (userId, data) => {
     });
 
     return {
-        full_name: updatedProfile.user?.fullName,
+        fullName: updatedProfile.user?.fullName,
         email: updatedProfile.user?.email,
         headline: updatedProfile.headline,
         summary: updatedProfile.summary,
         address: updatedProfile.address,
         city: updatedProfile.city,
-        date_of_birth: updatedProfile.dateOfBirth,
+        dateOfBirth: updatedProfile.dateOfBirth,
         gender: updatedProfile.gender
     };
 };

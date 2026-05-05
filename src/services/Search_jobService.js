@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 
 exports.searchJobs = async (filters) => {
     const {
-        keyword, location, job_type, job_level, salary,
+        keyword, location, jobType, jobLevel, salary,
         page = 1, limit = 10
     } = filters;
 
@@ -33,15 +33,16 @@ exports.searchJobs = async (filters) => {
 
     if (location) {
         const escapedLoc = location.trim();
-        where.OR = [
+        where.OR = where.OR || [];
+        where.OR.push(
             { location: { contains: escapedLoc, mode: 'insensitive' } },
             { company: { city: { contains: escapedLoc, mode: 'insensitive' } } },
             { company: { address: { contains: escapedLoc, mode: 'insensitive' } } }
-        ];
+        );
     }
 
-    if (job_type) where.jobType = job_type;
-    if (job_level) where.jobLevel = job_level;
+    if (jobType) where.jobType = jobType;
+    if (jobLevel) where.jobLevel = jobLevel;
     if (salary) where.salaryMax = { gte: parseInt(salary) };
 
     const [count, jobs] = await Promise.all([
@@ -73,8 +74,19 @@ exports.searchJobs = async (filters) => {
     ]);
 
     const transformedJobs = jobs.map(job => ({
-        ...job,
-        skills: job.skills.map(js => js.skill)
+        id: job.id,
+        title: job.title,
+        location: job.location,
+        jobType: job.jobType,
+        jobLevel: job.jobLevel,
+        benefits: job.benefits,
+        description: job.description,
+        requirements: job.requirements,
+        skills: job.skills.map(js => js.skill),
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        deadline: job.deadline,
+        company: job.company
     }));
 
     return {

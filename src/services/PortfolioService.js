@@ -56,14 +56,14 @@ exports.getFullProfile = async (userId) => {
     ]);
 
     return {
-        full_name: profile.user?.fullName,
-        avatar_url: profile.user?.avatarUrl,
+        fullName: profile.user?.fullName,
+        avatarUrl: profile.user?.avatarUrl,
         headline: profile.headline,
         summary: profile.summary,
         phone: profile.phone,
         address: profile.address,
         city: profile.city,
-        date_of_birth: profile.dateOfBirth,
+        dateOfBirth: profile.dateOfBirth,
         gender: profile.gender,
         experiences,
         educations,

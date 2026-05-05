@@ -29,17 +29,17 @@ exports.getMyCompany = async (userId) => {
         name: company.name,
         description: company.description,
         website: company.website,
-        logo_url: company.logoUrl,
+        logoUrl: company.logoUrl,
         address: company.address,
         city: company.city,
         size: company.size,
         status: company.status,
-        rejection_reason: company.rejectionReason,
+        rejectionReason: company.rejectionReason,
         recruiter: {
-            full_name: company.user?.fullName,
+            fullName: company.user?.fullName,
             email: company.user?.email,
             phone: company.user?.phone,
-            avatar_url: company.user?.avatarUrl
+            avatarUrl: company.user?.avatarUrl
         }
     };
 };

@@ -57,22 +57,22 @@ exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
         total_pages: Math.ceil(count / pageSize),
         current_page: pageNumber,
         applications: applications.map(app => ({
-            application_id: app.id,
+            applicationId: app.id,
             status: app.status,
-            cover_letter: app.coverLetter,
-            resume_url: app.resumeUrl,
-            applied_at: app.createdAt,
+            coverLetter: app.coverLetter,
+            resumeUrl: app.resumeUrl,
+            appliedAt: app.createdAt,
             candidate: {
                 id: app.user?.id,
-                full_name: app.user?.fullName,
+                fullName: app.user?.fullName,
                 email: app.user?.email,
                 phone: app.user?.phone,
-                avatar_url: app.user?.avatarUrl,
+                avatarUrl: app.user?.avatarUrl,
                 headline: app.user?.candidateProfile?.headline,
                 summary: app.user?.candidateProfile?.summary,
                 address: app.user?.candidateProfile?.address,
                 city: app.user?.candidateProfile?.city,
-                date_of_birth: app.user?.candidateProfile?.dateOfBirth,
+                dateOfBirth: app.user?.candidateProfile?.dateOfBirth,
                 gender: app.user?.candidateProfile?.gender
             }
         }))
@@ -124,17 +124,17 @@ exports.getAllApplicants = async (userId, filters = {}) => {
         total_pages: Math.ceil(count / pageSize),
         current_page: pageNumber,
         applications: applications.map(app => ({
-            application_id: app.id,
+            applicationId: app.id,
             status: app.status,
-            resume_url: app.resumeUrl,
-            applied_at: app.createdAt,
+            resumeUrl: app.resumeUrl,
+            appliedAt: app.createdAt,
             job: { id: app.job?.id, title: app.job?.title },
             candidate: {
                 id: app.user?.id,
-                full_name: app.user?.fullName,
+                fullName: app.user?.fullName,
                 email: app.user?.email,
                 phone: app.user?.phone,
-                avatar_url: app.user?.avatarUrl,
+                avatarUrl: app.user?.avatarUrl,
                 candidateProfile: app.user?.candidateProfile ? {
                     ...app.user.candidateProfile,
                     skills: app.user.candidateProfile.skills.map(cs => cs.skill)

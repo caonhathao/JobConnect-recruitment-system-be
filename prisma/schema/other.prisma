@@ -12,6 +12,7 @@ model Resume {
 
   @@index([userId])
   @@map("resumes")
+  resumeVectors ResumeVectors[] @relation("ResumeToExperience")
 }
 
 model Application {

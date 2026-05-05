@@ -44,8 +44,8 @@ exports.getBookmarks = async (userId, filters = {}) => {
         total_pages: Math.ceil(count / pageSize),
         current_page: pageNumber,
         bookmarks: bookmarks.map(b => ({
-            bookmark_id: b.id,
-            saved_at: b.createdAt,
+            bookmarkId: b.id,
+            savedAt: b.createdAt,
             job: b.job
         }))
     };

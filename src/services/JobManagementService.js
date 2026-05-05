@@ -52,8 +52,8 @@ exports.createJob = async (userId, data) => {
 
     const {
         title, description, requirements, benefits,
-        salary_min, salary_max, location,
-        job_type, job_level, deadline, skills = []
+        salaryMin, salaryMax, location,
+        jobType, jobLevel, deadline, skills = []
     } = data;
 
     if (!title?.trim()) throw new Error('Tiêu đề công việc không được để trống.');
@@ -65,11 +65,11 @@ exports.createJob = async (userId, data) => {
             description: description?.trim() || null,
             requirements: requirements?.trim() || null,
             benefits: benefits?.trim() || null,
-            salaryMin: salary_min || null,
-            salaryMax: salary_max || null,
+            salaryMin: salaryMin || null,
+            salaryMax: salaryMax || null,
             location: location?.trim() || null,
-            jobType: job_type?.trim() || null,
-            jobLevel: job_level?.trim() || null,
+            jobType: jobType?.trim() || null,
+            jobLevel: jobLevel?.trim() || null,
             deadline: deadline || null,
             status: 'pending'
         }
@@ -134,8 +134,8 @@ exports.updateJob = async (userId, jobId, data) => {
 
     const {
         title, description, requirements, benefits,
-        salary_min, salary_max, location,
-        job_type, job_level, deadline, skills
+        salaryMin, salaryMax, location,
+        jobType, jobLevel, deadline, skills
     } = data;
 
     if (title !== undefined && !title?.trim()) {
@@ -147,11 +147,11 @@ exports.updateJob = async (userId, jobId, data) => {
     if (description !== undefined) updateData.description = description?.trim() || null;
     if (requirements !== undefined) updateData.requirements = requirements?.trim() || null;
     if (benefits !== undefined) updateData.benefits = benefits?.trim() || null;
-    if (salary_min !== undefined) updateData.salaryMin = salary_min;
-    if (salary_max !== undefined) updateData.salaryMax = salary_max;
+    if (salaryMin !== undefined) updateData.salaryMin = salaryMin;
+    if (salaryMax !== undefined) updateData.salaryMax = salaryMax;
     if (location !== undefined) updateData.location = location?.trim() || null;
-    if (job_type !== undefined) updateData.jobType = job_type?.trim() || null;
-    if (job_level !== undefined) updateData.jobLevel = job_level?.trim() || null;
+    if (jobType !== undefined) updateData.jobType = jobType?.trim() || null;
+    if (jobLevel !== undefined) updateData.jobLevel = jobLevel?.trim() || null;
     if (deadline !== undefined) updateData.deadline = deadline;
 
     if (Object.keys(updateData).length > 0 && job.status !== 'paused') {
