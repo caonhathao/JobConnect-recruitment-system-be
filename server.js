@@ -3,6 +3,9 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// export the app for testing
+module.exports = app;
+
 // import thư viện
 const cors = require('cors');
 const morgan = require('morgan');
