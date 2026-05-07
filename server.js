@@ -46,6 +46,7 @@ const adminReportRoutes    = require('./src/routes/AdminReportRoutes');
 const adminRoutes          = require('./src/routes/adminRoutes');   
 const searchJobRoutes      = require('./src/routes/Search_jobRoutes');
 
+const { setupVectorSchedule } = require('./src/scheduler/vectorRetry');
 // Router công khai
 const publicRoutes         = require('./src/routes/PublicRoutes'); 
 // Routes
@@ -83,7 +84,7 @@ app.get('/', (req, res) => {
     });
 });
 
-
+setupVectorSchedule(); // Kích hoạt lịch quét vector hàng ngày
 
 // Khởi động Server (Database migrations handled via: npx prisma db push)
 app.listen(PORT, () => {

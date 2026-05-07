@@ -18,13 +18,14 @@ npm run db:migrate       # Run Prisma migrations
 npm run generate         # Generate Prisma client (output: prisma/src/generated/)
 npm run studio            # Open Prisma Studio on port 8888
 
-# Testing (currently not configured)
-npm test                  # Currently echoes error - no test framework set up
+# Testing (Jest + Supertest)
+npm test                  # Run all integration tests in tests/integration/
 
-# To run a single test file (once tests are added):
-# node --test path/to/test.test.js
-# Or with a test runner (jest/mocha):
-# npx jest --testPathPattern="test文件名"
+# Run a single test file:
+npx jest tests/integration/auth.test.js
+
+# Run tests matching a pattern:
+npx jest --testNamePattern="login"
 ```
 
 ## Code Style Guidelines

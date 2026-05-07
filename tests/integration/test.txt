@@ -1,0 +1,74 @@
+=== PREPROCESSING PIPELINE TEST RESULTS ===
+
+=== STAGE 1: CLEANED TEXT ===
+Job Title: kỹ sư phần mềm (software engineer). Company Location: Hà Nội. Job Type: Full-time. Level: Mid-level. Description: tuyển dụng kỹ sư phần mềm làm việc tại hà nội. công ty chúng tôi là doanh nghiệp hàng đầu lĩnh vực cntt, phát triển giải pháp phần mềm trong nước và quốc tế. đang tìm ứng viên năng động, sáng tạo gia nhập đội ngũ kỹ thuật. vị trí yêu cầu kiến thức vững lập trình, khả năng làm việc nhóm tốt, tư duy giải quyết vấn đề linh hoạt. công việc chính: thiết kế, phát triển, bảo trì ứng dụng web/mobile; phân tích yêu cầu, thiết kế hệ thống, viết tài liệu kỹ thuật; hợp tác với bộ phận sản phẩm, thiết kế đảm bảo sản phẩm đáp ứng nhu cầu người dùng; tối ưu hiệu suất ứng dụng, đảm bảo bảo mật, ổn định hệ thống; tham gia dự án r&d công nghệ mới. yêu cầu: tốt nghiệp đại học cntt, khoa học máy tính; có ít nhất 2 năm kinh nghiệm (kn) làm việc với javascript, python, java; thành thạo react, node.js, spring boot; có kiến thức sql/nosql; sử dụng được jira, trello; tư duy logic tốt, tự học nhanh; giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật. quyền lợi: lương 20-40 triệu/tháng; thưởng quý, thưởng cuối năm; đóng đầy đủ bảo hiểm (bhxh, bhyt, bhtn); tham gia khóa đào tạo (đt) nâng cao kỹ năng; môi trường trẻ trung, thăng tiến rõ ràng; cấp thiết bị làm việc hiện đại; team building, du lịch hàng năm. địa điểm: tòa nhà abc, 123 trần duy hưng, cầu giấy, hà nội. thời gian làm việc: 8h00-17h30 thứ 2-6, thứ 7 bán thời gian nếu có dự án gấp. hạn nộp: 31/12/2026. liên hệ: hr department, email: hr@jobconnect.vn, điện thoại: 0987654321. hồ sơ gồm cv, thư xin việc, chứng chỉ liên quan. cam kết bảo mật thông tin ứng viên. công ty tnhh jobconnect việt nam. ứng viên cần làm việc độc lập, chịu áp lực cao. có kinh nghiệm aws, azure là lợi thế. hưởng phúc lợi khác theo quy định công ty. gửi hồ sơ về email trước hạn nộp. liên hệ ứng viên phù hợp lịch phỏng vấn. cảm ơn quan tâm vị trí jobconnect. chúc may mắn ứng tuyển. làm việc tại công ty tiếp cận công nghệ tiên tiến nhất thế giới. đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc. tổ chức chia sẻ kiến thức định kỳ nâng cao kỹ năng nhân viên.. Requirements: tốt nghiệp đại học cntt, 2 năm kinh nghiệm (kn) lập trình. Benefits: lương cạnh tranh, thưởng, bảo hiểm (bhxh, bhyt).
+
+=== STAGE 2: STANDARDIZED TEXT ===
+job title: kỹ sư phần mềm (software engineer). company location: hà nội. job type: full-time. level: mid-level. description: tuyển dụng dụng kỹ sư phần mềm làm việc tại hà nội. công ty chúng tôi doanh nghiệp hàng đầu lĩnh vực cntt, phát triển giải pháp phần mềm nước quốc tế. đang tìm ứng viên năng động, sáng tạo gia nhập đội ngũ kỹ thuật. vị trí yêu cầu kiến thức vững lập trình, khả năng làm việc nhóm tốt, tư duy giải quyết vấn đề linh hoạt. công việc chính: thiết kế, phát triển, bảo trì ứng dụng web/mobile; phân tích yêu cầu, thiết kế hệ thống, viết tài liệu kỹ thuật; hợp tác bộ phận sản phẩm, thiết kế đảm bảo sản phẩm đáp ứng nhu cầu người dùng; tối ưu hiệu suất ứng dụng, đảm bảo bảo mật, ổn định hệ thống; tham gia dự án r&d công nghệ mới. yêu cầu: tốt nghiệp đại học cntt, khoa học máy tính; có ít nhất 2 năm kinh nghiệm (kinh nghiệm) làm việc javascript, python, java; thành thạo react, node.js, spring boot; có kiến thức sql/nosql; sử dụng jira, trello; tư duy logic tốt, tự học nhanh; giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật. quyền lợi: lương 20-40 triệu/tháng; thưởng quý, thưởng cuối năm; đóng đầy đủ bảo hiểm (bảo hiểm xã hội, bảo hiểm y tế, bhtn); tham gia khóa đào tạo (đào tạo) nâng cao kỹ năng; môi trường trẻ trung, thăng tiến rõ ràng; cấp thiết bị làm việc hiện đại; team building, du lịch hàng năm. địa điểm: tòa nhà abc, 123 trần duy hưng, cầu giấy, hà nội. thời gian làm việc: 8h00-17h30 thứ 2-6, thứ 7 bán thời gian nếu dự án gấp. hạn nộp: 31/12/2026. liên hệ: hr department, email: hr@jobconnect.vn, điện thoại: 0987654321. hồ sơ gồm cv, thư xin việc, chứng chỉ liên quan. cam kết bảo mật thông tin ứng viên. công ty tnhh jobconnect việt nam. ứng viên cần làm việc độc lập, chịu áp lực cao. có kinh nghiệm aws, azure lợi thế. hưởng phúc lợi khác theo quy định công ty. gửi hồ sơ về email trước hạn nộp. liên hệ ứng viên phù hợp lịch phỏng vấn. cảm ơn quan tâm vị trí jobconnect. chúc may mắn ứng tuyển dụng. làm việc tại công ty tiếp cận công nghệ tiên tiến nhất thế giới. đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc. tổ chức chia sẻ kiến thức định kỳ nâng cao kỹ năng nhân viên.. requirements: tốt nghiệp đại học cntt, 2 năm kinh nghiệm (kinh nghiệm) lập trình. benefits: lương cạnh tranh, thưởng, bảo hiểm (bảo hiểm xã hội, bảo hiểm y tế).
+
+=== STAGE 3: CHUNKING RESULTS ===
+Chunk 1 (275 chars):
+job title: kỹ sư phần mềm (software engineer). company location: hà nội. job type: full-time. level: mid-level. description: tuyển dụng dụng kỹ sư phần mềm làm việc tại hà nội. công ty chúng tôi doanh nghiệp hàng đầu lĩnh vực cntt, phát triển giải pháp phần mềm nước quốc tế.
+
+Chunk 2 (268 chars):
+công ty chúng tôi doanh nghiệp hàng đầu lĩnh vực cntt, phát triển giải pháp phần mềm nước quốc tế. đang tìm ứng viên năng động, sáng tạo gia nhập đội ngũ kỹ thuật. vị trí yêu cầu kiến thức vững lập trình, khả năng làm việc nhóm tốt, tư duy giải quyết vấn đề linh hoạt.
+
+Chunk 3 (234 chars):
+vị trí yêu cầu kiến thức vững lập trình, khả năng làm việc nhóm tốt, tư duy giải quyết vấn đề linh hoạt. công việc chính: thiết kế, phát triển, bảo trì ứng dụng web/mobile; phân tích yêu cầu, thiết kế hệ thống, viết tài liệu kỹ thuật;
+
+Chunk 4 (290 chars):
+phân tích yêu cầu, thiết kế hệ thống, viết tài liệu kỹ thuật; hợp tác bộ phận sản phẩm, thiết kế đảm bảo sản phẩm đáp ứng nhu cầu người dùng; tối ưu hiệu suất ứng dụng, đảm bảo bảo mật, ổn định hệ thống; tham gia dự án r&d công nghệ mới. yêu cầu: tốt nghiệp đại học cntt, khoa học máy tính;
+
+Chunk 5 (296 chars):
+yêu cầu: tốt nghiệp đại học cntt, khoa học máy tính; có ít nhất 2 năm kinh nghiệm (kinh nghiệm) làm việc javascript, python, java; thành thạo react, node.js, spring boot; có kiến thức sql/nosql; sử dụng jira, trello; tư duy logic tốt, tự học nhanh; giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật.
+
+Chunk 6 (297 chars):
+giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật. quyền lợi: lương 20-40 triệu/tháng; thưởng quý, thưởng cuối năm; đóng đầy đủ bảo hiểm (bảo hiểm xã hội, bảo hiểm y tế, bhtn); tham gia khóa đào tạo (đào tạo) nâng cao kỹ năng; môi trường trẻ trung, thăng tiến rõ ràng; cấp thiết bị làm việc hiện đại;
+
+Chunk 7 (293 chars):
+cấp thiết bị làm việc hiện đại; team building, du lịch hàng năm. địa điểm: tòa nhà abc, 123 trần duy hưng, cầu giấy, hà nội. thời gian làm việc: 8h00-17h30 thứ 2-6, thứ 7 bán thời gian nếu dự án gấp. hạn nộp: 31/12/2026. liên hệ: hr department, email: hr@jobconnect.vn, điện thoại: 0987654321.
+
+Chunk 8 (272 chars):
+vn, điện thoại: 0987654321. hồ sơ gồm cv, thư xin việc, chứng chỉ liên quan. cam kết bảo mật thông tin ứng viên. công ty tnhh jobconnect việt nam. ứng viên cần làm việc độc lập, chịu áp lực cao. có kinh nghiệm aws, azure lợi thế. hưởng phúc lợi khác theo quy định công ty.
+
+Chunk 9 (296 chars):
+hưởng phúc lợi khác theo quy định công ty. gửi hồ sơ về email trước hạn nộp. liên hệ ứng viên phù hợp lịch phỏng vấn. cảm ơn quan tâm vị trí jobconnect. chúc may mắn ứng tuyển dụng. làm việc tại công ty tiếp cận công nghệ tiên tiến nhất thế giới. đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc.
+
+Chunk 10 (273 chars):
+đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc. tổ chức chia sẻ kiến thức định kỳ nâng cao kỹ năng nhân viên.. requirements: tốt nghiệp đại học cntt, 2 năm kinh nghiệm (kinh nghiệm) lập trình. benefits: lương cạnh tranh, thưởng, bảo hiểm (bảo hiểm xã hội, bảo hiểm y tế).
+
+
+=== STAGE 3: FUZZY OVERLAP DETECTION ===
+[DEBUG] Chunk 1 Tail: " cntt, phát triển giải pháp phần mềm nước quốc tế." | Chunk 2 Head: "công ty chúng tôi doanh nghiệp hàng đầu lĩnh vực c"
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 2 Tail: "việc nhóm tốt, tư duy giải quyết vấn đề linh hoạt." | Chunk 3 Head: "vị trí yêu cầu kiến thức vững lập trình, khả năng "
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 3 Tail: "êu cầu, thiết kế hệ thống, viết tài liệu kỹ thuật;" | Chunk 4 Head: "phân tích yêu cầu, thiết kế hệ thống, viết tài liệ"
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 4 Tail: "u cầu: tốt nghiệp đại học cntt, khoa học máy tính;" | Chunk 5 Head: "yêu cầu: tốt nghiệp đại học cntt, khoa học máy tín"
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 5 Tail: "h; giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật." | Chunk 6 Head: "giao tiếp tiếng anh đọc hiểu tài liệu kỹ thuật. qu"
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 6 Tail: "hăng tiến rõ ràng; cấp thiết bị làm việc hiện đại;" | Chunk 7 Head: "cấp thiết bị làm việc hiện đại; team building, du "
+[DEBUG] Overlap found: "cấp thiết bị làm việc hiện đại;" (Length: 31)
+[DEBUG] Chunk 7 Tail: ", email: hr@jobconnect.vn, điện thoại: 0987654321." | Chunk 8 Head: "vn, điện thoại: 0987654321. hồ sơ gồm cv, thư xin "
+[DEBUG] Overlap found: "vn, điện thoại: 0987654321." (Length: 27)
+[DEBUG] Chunk 8 Tail: "ợi thế. hưởng phúc lợi khác theo quy định công ty." | Chunk 9 Head: "hưởng phúc lợi khác theo quy định công ty. gửi hồ "
+[DEBUG] Overlap found: "" (Length: 0)
+[DEBUG] Chunk 9 Tail: " đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc." | Chunk 10 Head: "đội ngũ kỹ thuật hỗ trợ trong quá trình làm việc. "
+[DEBUG] Overlap found: "" (Length: 0)
+
+=== STAGE 4: EMBEDDING RESULTS ===
+Chunk 1 first 5 dims: 0.11238785833120346,-0.07254834473133087,0.18842878937721252,0.0348140224814415,0.0047065336257219315
+Chunk 2 first 5 dims: 0.006054009776562452,-0.21934407949447632,-0.05753367394208908,-0.16142471134662628,-0.2091967612504959
+Chunk 3 first 5 dims: 0.030620571225881577,-0.02353108488023281,-0.08853156119585037,0.0011757554020732641,-0.1805688887834549
+Chunk 4 first 5 dims: -0.11082286387681961,0.060820817947387695,0.04927270486950874,-0.14005357027053833,-0.10557398200035095
+Chunk 5 first 5 dims: 0.0013328837230801582,0.10050279647111893,0.03652012348175049,-0.09865310788154602,-0.32177138328552246
+Chunk 6 first 5 dims: 0.06763773411512375,0.31520044803619385,-0.15681041777133942,-0.17606215178966522,-0.06240730360150337
+Chunk 7 first 5 dims: 0.05292954668402672,0.11231116205453873,-0.021650835871696472,0.0037006456404924393,-0.052436988800764084
+Chunk 8 first 5 dims: -0.04681333154439926,0.27039265632629395,-0.1257583498954773,-0.13038241863250732,-0.2885113060474396
+Chunk 9 first 5 dims: -0.11537802964448929,0.013639730401337147,0.1118260994553566,-0.08736726641654968,-0.14067089557647705
+Chunk 10 first 5 dims: 0.025829583406448364,0.16508373618125916,-0.015727177262306213,0.04445233196020126,-0.11394475400447845
+
+=== COVERAGE RESULT ===
+Full text coverage: PASSED
