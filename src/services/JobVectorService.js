@@ -1,5 +1,4 @@
 const prisma = require("../config/prisma");
-
 /**
  * Service contains logic for:
  * - Chunking (data after cleaning).
@@ -37,60 +36,69 @@ async function storeNewJobVector(id, processedChunks) {
    */
 
   try {
-    const transaction = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       for (const chunk of processedChunks) {
+        const vectorStr = `[${chunk.embedding.join(",")}]`;
         await tx.$executeRaw`
-          INSERT INTO "JobChunk" (id, "jobId", content, embedding)
-          VALUES (${uuidv4()}, ${jobId}, ${chunks[i]}, ${vectorString}::vector)
+          INSERT INTO "JobVectors" ( "jobId", content, embedding)
+          VALUES ( ${id}, ${chunk.content}, ${vectorStr}::vector)
         `;
       }
       await tx.job.update({
-        where: { id: jobId },
+        where: { id: id },
         data: { vectorStatus: "COMPLETED" },
       });
     });
   } catch (error) {
-    console.error(`Lỗi vector hóa Job ${jobId}:`, error);
+    console.error(`Lỗi vector hóa Job ${id}:`, error);
     await prisma.job.update({
-      where: { id: jobId },
+      where: { id: id },
       data: { vectorStatus: "FAILED" },
     });
   }
 }
 
-async function updateExistingJobVector(jobId, processedChunks) {
+/**
+ * @param {string} id - job ID
+ * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
+ */
+async function updateExistingJobVector(id, processedChunks) {
   if (!id || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
 
   try {
-    const transaction = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // delete existing chunks for the job before updating with new chunks to avoid duplication and maintain data integrity
-      await tx.jobChunk.deleteMany({
-        where: { jobId },
+      await tx.jobVectors.deleteMany({
+        where: { jobId: id },
       });
 
       // insert new chunks with updated content and embeddings
       for (const chunk of processedChunks) {
+        const vectorStr = `[${chunk.embedding.join(",")}]`;
         await tx.$executeRaw`
-          INSERT INTO "JobChunk" (id, "jobId", content, embedding)
-          VALUES (${uuidv4()}, ${jobId}, ${chunk.content}, ${JSON.stringify(chunk.embedding)}::vector)
+          INSERT INTO "job_vectors" ( "jobId", content, embedding)
+          VALUES ( ${id}, ${chunk.content}, ${vectorStr}::vector)
         `;
       }
       await tx.job.update({
-        where: { id: jobId },
+        where: { id: id },
         data: { vectorStatus: "COMPLETED" },
       });
     });
   } catch (error) {
-    console.error(`Lỗi cập nhật vector hóa Job ${jobId}:`, error);
+    console.error(`Lỗi cập nhật vector hóa Job ${id}:`, error);
     await prisma.job.update({
-      where: { id: jobId },
+      where: { id: id },
       data: { vectorStatus: "FAILED" },
     });
   }
 }
 
+/**
+ * @param {import('@prisma/client').Job} job - job object
+ */
 async function processAndStoreJobVector(job) {
   // Step 1: Clean the job data to remove noise and irrelevant information
   const cleanedText = cleaningText(job);
@@ -103,8 +111,7 @@ async function processAndStoreJobVector(job) {
   // Step 2: Standardize the cleaned text to ensure consistent representation, especially for Vietnamese text
   const standardizedText = textStandardization(cleanedText);
   // Step 3: Chunk the standardized text into smaller pieces suitable for embedding generation
-  let chunks = [];
-  chunks = textChunking(standardizedText);
+  let chunks = textChunking(standardizedText);
   if (chunks.length === 0) {
     console.warn(
       `Job ${job.id} has no valid chunks after chunking. Skipping vectorization.`,
@@ -112,25 +119,36 @@ async function processAndStoreJobVector(job) {
   }
   // Step 4: Generate embeddings for each chunk using the embedding model
   let chunkEmbeddings = [];
-  chunkEmbeddings = await Promise.all(
-    chunks.map(async (chunk) => {
-      const embedding = await getEmbedding(chunk);
-      return embedding;
-    }),
-  );
+  for (const chunk of chunks) {
+    const embedding = await getEmbedding(chunk);
+    if (!embedding) {
+      throw new Error(
+        `Failed to generate embedding for a chunk in Job ${job.id}`,
+      );
+    }
+    chunkEmbeddings.push(embedding);
+  }
   // Step 5: Create processed chunks with embeddings
   // Check if job id is exists in the database before storing
   // if it exists, we can update the existing chunks and embeddings instead of creating new ones to avoid duplication and maintain data integrity
 
-  const existingChunks = await prisma.jobChunk.findMany({
+  const existingChunks = await prisma.jobVectors.findMany({
     where: { jobId: job.id },
   });
 
-  const processedChunks = chunks.map((chunk, index) => ({
-    content: chunk,
-    embedding: chunkEmbeddings[index],
-    index,
-  }));
+  const processedChunks = chunks.map((chunk, index) => {
+    // Handle the case where the embedding might be returned as a Tensor (e.g., from Transformers.js) instead of a plain array. We convert it to an array if necessary to ensure consistent storage in the database.
+    const embeddingArray = Array.isArray(chunkEmbeddings[index])
+      ? chunkEmbeddings[index]
+      : Array.from(chunkEmbeddings[index].data); // if is is a Tensor from Transformers.js, convert it to array
+
+    return {
+      content: chunk,
+      embedding: embeddingArray,
+      index,
+    };
+  });
+
   if (!existingChunks || existingChunks.length === 0) {
     // Step 6: Store the processed chunks and their embeddings in the database
     await storeNewJobVector(job.id, processedChunks);
@@ -140,6 +158,5 @@ async function processAndStoreJobVector(job) {
 }
 
 module.exports = {
-  storeJobVector,
   processAndStoreJobVector,
 };

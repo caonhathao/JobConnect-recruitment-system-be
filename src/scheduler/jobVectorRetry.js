@@ -1,6 +1,6 @@
 const cron = require("node-cron");
-const prisma = require("../lib/prisma"); // Đường dẫn tới Prisma client của bạn
-const { storeJobVector } = require("../services/JobVectorService");
+const prisma = require("../config/prisma"); // Đường dẫn tới Prisma client của bạn
+const { processAndStoreJobVector } = require("../services/JobVectorService");
 /**
  * Thiết lập lịch quét các Job chưa được xử lý vector thành công.
  * @description Chạy vào lúc 00:00 mỗi ngày (theo yêu cầu check mỗi 24h).
@@ -27,7 +27,7 @@ const setupVectorSchedule = () => {
 
       for (const job of incompleteJobs) {
         // Thực hiện xử lý lại (Không dùng await để không làm nghẽn vòng lặp nếu 1 job lỗi)
-        storeJobVector(job.id, job.description)
+        processAndStoreJobVector(job)
           .then(() => console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`))
           .catch((err) =>
             console.error(`[SCHEDULE] Error re-processing Job ${job.id}:`, err),

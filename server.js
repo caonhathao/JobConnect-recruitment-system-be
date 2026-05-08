@@ -1,4 +1,5 @@
 require('dotenv').config();
+const process = require('process');
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,7 +11,7 @@ module.exports = app;
 const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit');
 
 
 // Cấu hình Middleware
@@ -22,6 +23,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve file tĩnh (avatar, CV PDF...)
+// eslint-disable-next-line no-undef
 app.use('/uploads', express.static(require('path').join(__dirname, 'src/uploads')));
 
 
@@ -46,7 +48,7 @@ const adminReportRoutes    = require('./src/routes/AdminReportRoutes');
 const adminRoutes          = require('./src/routes/adminRoutes');   
 const searchJobRoutes      = require('./src/routes/Search_jobRoutes');
 
-const { setupVectorSchedule } = require('./src/scheduler/vectorRetry');
+const { setupVectorSchedule } = require('./src/scheduler/jobVectorRetry');
 // Router công khai
 const publicRoutes         = require('./src/routes/PublicRoutes'); 
 // Routes
@@ -90,4 +92,3 @@ setupVectorSchedule(); // Kích hoạt lịch quét vector hàng ngày
 app.listen(PORT, () => {
     console.log(`✅ Server is running on port: http://localhost:${PORT}`);
 });
-
