@@ -4,8 +4,7 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// export the app for testing
-module.exports = app;
+// export the app and server for testing
 
 // import thư viện
 const cors = require('cors');
@@ -89,6 +88,9 @@ app.get('/', (req, res) => {
 setupVectorSchedule(); // Kích hoạt lịch quét vector hàng ngày
 
 // Khởi động Server (Database migrations handled via: npx prisma db push)
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`✅ Server is running on port: http://localhost:${PORT}`);
 });
+
+// Export app and server for testing cleanup
+module.exports = { app, server };

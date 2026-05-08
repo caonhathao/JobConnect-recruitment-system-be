@@ -219,10 +219,45 @@ exports.updateJob = async (userId, jobId, data) => {
     updateData.rejectionReason = null;
   }
 
-  await prisma.job.update({
+  const updatedJob = await prisma.job.update({
     where: { id: jobId },
     data: updateData,
   });
+
+  /**
+   * Warning: In development env,
+   * We will use the feature called 'fire and forget'.
+   * When job created and store in database, we will immediately return response to client without waiting for the embedding process to complete.
+   * The embedding process will be handled asynchronously in the background.
+   * This approach allows us to provide a faster response time to the client, improving the user experience.
+   * However, it also means that there may be a delay before the job's embedding is available for use in features like job matching or search.
+   * In production, we might want to implement a more robust solution, such as using a message queue to handle the embedding process and ensure reliability.
+   */
+
+  /**
+   * But first, we need to check  if job created successfully or not
+   */
+
+  if (updatedJob) {
+    // We will not await this function, it will run in the background
+    global.setImmediate(async () => {
+      try {
+        console.log(
+          `[Background Job] Starting embedding process for Job ID: ${updatedJob.id}`,
+        );
+        await JobVectorService.processAndStoreJobVector(updatedJob);
+      } catch (err) {
+        console.error(
+          `[Background Job] Error occurred while processing embedding for Job ID: ${updatedJob.id}`,
+          err,
+        );
+        await prisma.job.update({
+          where: { id: updatedJob.id },
+          data: { vectorStatus: "FAILED" },
+        });
+      }
+    });
+  }
 
   if (Array.isArray(skills) && skills.length > 0) {
     await _attachSkills(jobId, skills);

@@ -1,6 +1,10 @@
+// @ts-nocheck
 const cron = require("node-cron");
 const prisma = require("../config/prisma"); // Đường dẫn tới Prisma client của bạn
 const { processAndStoreJobVector } = require("../services/JobVectorService");
+
+let scheduledTask = null;
+
 /**
  * Thiết lập lịch quét các Job chưa được xử lý vector thành công.
  * @description Chạy vào lúc 00:00 mỗi ngày (theo yêu cầu check mỗi 24h).
@@ -8,7 +12,7 @@ const { processAndStoreJobVector } = require("../services/JobVectorService");
 const setupVectorSchedule = () => {
   // Cấu trúc: 'phút giờ ngày tháng thứ_trong_tuần'
   // '0 0 * * *' tương ứng với 00:00 hàng ngày
-  cron.schedule("0 0 * * *", async () => {
+  scheduledTask = cron.schedule("0 0 * * *", async () => {
     console.log(
       "[SCHEDULE] Bắt đầu quét các Job lỗi hoặc chưa xử lý vector...",
     );
@@ -46,4 +50,12 @@ const setupVectorSchedule = () => {
   );
 };
 
-module.exports = { setupVectorSchedule };
+const stopVectorSchedule = () => {
+  if (scheduledTask) {
+    scheduledTask.stop();
+    scheduledTask = null;
+    console.log("[SYSTEM] Vectorization Schedule đã được tắt.");
+  }
+};
+
+module.exports = { setupVectorSchedule, stopVectorSchedule };

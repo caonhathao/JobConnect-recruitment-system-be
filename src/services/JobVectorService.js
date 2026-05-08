@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const crypto = require("crypto");
 /**
  * Service contains logic for:
  * - Chunking (data after cleaning).
@@ -21,11 +22,11 @@ const {
  */
 
 /**
- * @param {string} id - job ID
+ * @param {string} jobId - job ID
  * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
  */
-async function storeNewJobVector(id, processedChunks) {
-  if (!id || !processedChunks || !Array.isArray(processedChunks)) {
+async function storeNewJobVector(jobId, processedChunks) {
+  if (!jobId || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
 
@@ -39,31 +40,32 @@ async function storeNewJobVector(id, processedChunks) {
     await prisma.$transaction(async (tx) => {
       for (const chunk of processedChunks) {
         const vectorStr = `[${chunk.embedding.join(",")}]`;
+        const id = crypto.randomUUID(); // Generate a unique ID for each chunk
         await tx.$executeRaw`
-          INSERT INTO "JobVectors" ( "jobId", content, embedding)
-          VALUES ( ${id}, ${chunk.content}, ${vectorStr}::vector)
+          INSERT INTO "job_vectors" ("id", "job_id", content, embedding,created_at,updated_at)
+          VALUES ( ${id},${jobId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
         `;
       }
       await tx.job.update({
-        where: { id: id },
+        where: { id: jobId },
         data: { vectorStatus: "COMPLETED" },
       });
     });
   } catch (error) {
-    console.error(`Lỗi vector hóa Job ${id}:`, error);
+    console.error(`Lỗi vector hóa Job ${jobId}:`, error);
     await prisma.job.update({
-      where: { id: id },
+      where: { id: jobId },
       data: { vectorStatus: "FAILED" },
     });
   }
 }
 
 /**
- * @param {string} id - job ID
+ * @param {string} jobId - job ID
  * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
  */
-async function updateExistingJobVector(id, processedChunks) {
-  if (!id || !processedChunks || !Array.isArray(processedChunks)) {
+async function updateExistingJobVector(jobId, processedChunks) {
+  if (!jobId || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
 
@@ -71,26 +73,27 @@ async function updateExistingJobVector(id, processedChunks) {
     await prisma.$transaction(async (tx) => {
       // delete existing chunks for the job before updating with new chunks to avoid duplication and maintain data integrity
       await tx.jobVectors.deleteMany({
-        where: { jobId: id },
+        where: { jobId: jobId },
       });
 
       // insert new chunks with updated content and embeddings
       for (const chunk of processedChunks) {
         const vectorStr = `[${chunk.embedding.join(",")}]`;
+        const id = crypto.randomUUID(); // Generate a unique ID for each chunk
         await tx.$executeRaw`
-          INSERT INTO "job_vectors" ( "jobId", content, embedding)
-          VALUES ( ${id}, ${chunk.content}, ${vectorStr}::vector)
+          INSERT INTO "job_vectors" ("id", "job_id", content, embedding,created_at,updated_at)
+          VALUES ( ${id}, ${jobId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
         `;
       }
       await tx.job.update({
-        where: { id: id },
+        where: { id: jobId },
         data: { vectorStatus: "COMPLETED" },
       });
     });
   } catch (error) {
-    console.error(`Lỗi cập nhật vector hóa Job ${id}:`, error);
+    console.error(`Lỗi cập nhật vector hóa Job ${jobId}:`, error);
     await prisma.job.update({
-      where: { id: id },
+      where: { id: jobId },
       data: { vectorStatus: "FAILED" },
     });
   }
@@ -140,6 +143,7 @@ async function processAndStoreJobVector(job) {
     // Handle the case where the embedding might be returned as a Tensor (e.g., from Transformers.js) instead of a plain array. We convert it to an array if necessary to ensure consistent storage in the database.
     const embeddingArray = Array.isArray(chunkEmbeddings[index])
       ? chunkEmbeddings[index]
+      // @ts-ignore
       : Array.from(chunkEmbeddings[index].data); // if is is a Tensor from Transformers.js, convert it to array
 
     return {

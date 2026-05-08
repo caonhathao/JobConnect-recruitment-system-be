@@ -5,24 +5,41 @@
  * This embedding can then be stored in a database or used directly for tasks like job matching or recommendation systems.
  */
 require('dotenv').config();
+const process = require('process');
 const { InferenceClient } = require("@huggingface/inference");
 
 // Khởi tạo client với Token từ Hugging Face (nên để trong .env)
 const client = new InferenceClient(process.env.HF_TOKEN);
 
+/**
+ * 
+ * @param {String} text 
+ * @returns 
+ */
+
 const getEmbedding = async (text) => {
-  try {
-    const output = await client.featureExtraction({
-      model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-      inputs: text,
-    });
-    
-    // Output trả về từ API thường là mảng vector (Array of numbers)
-    return output; 
-  } catch (error) {
-    console.error("Lỗi gọi Hugging Face API:", error);
-    return null;
+  const maxRetries = 3;
+  const baseDelay = 1000;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const output = await client.featureExtraction({
+        model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        inputs: text,
+      });
+      return output;
+    } catch (error) {
+      // @ts-ignore
+      console.error(`Lỗi gọi Hugging Face API (lần ${attempt}/${maxRetries}):`, error.message);
+      if (attempt < maxRetries) {
+        const backoff = baseDelay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+      }
+    }
   }
+
+  console.error("Đã thử lại 3 lần, không thể lấy embedding.");
+  return null;
 };
 
 module.exports = {
