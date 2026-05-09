@@ -1,123 +1,672 @@
-# 🚀 JobConnect API Documentation (Full-Stack Standard)
+# JobConnect API Documentation
 
-## 🔐 1. Authentication (Auth Module)
-*Quản lý đăng ký, đăng nhập và phiên làm việc.*
+Base URL: `http://localhost:3000`
 
-| Feature | Endpoint | Method | Request Body (JSON) | Success Response (200/201) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Đăng ký** | `/api/auth/register` | `POST` | `{ "fullName": "Nguyễn Văn A", "email": "abc@gmail.com", "phone": "0901234567", "password": "123456", "companyName": "ABC Corp", "address": "HCM" }` | `{ "status": "success", "data": { "id": "uuid", "email": "abc@gmail.com", "phone": "0901234567", "fullName": "Nguyễn Văn A", "role": "candidate", "accessToken": "ey...", "refreshToken": "ey..." } }` | `companyName` & `address` chỉ dùng cho Recruiter. |
-| **Đăng nhập** | `/api/auth/login` | `POST` | `{ "email": "abc@gmail.com", "password": "123456" }` | `{ "status": "success", "data": { "id": "uuid", "email": "abc@gmail.com", "phone": "0901234567", "fullName": "Nguyễn Văn A", "role": "candidate", "avatarUrl": "...", "accessToken": "ey...", "refreshToken": "ey..." } }` | Trả về `accessToken`, `refreshToken`. |
-| **Refresh Token**| `/api/auth/refresh-token` | `POST` | `{ "refreshToken": "ey..." }` | `{ "accessToken": "ey..." }` | Lấy access token mới. |
-| **Đăng xuất** | `/api/auth/logout` | `POST` | (Header `Authorization: Bearer <accessToken>`) | `{ "message": "Đăng xuất thành công" }` | Hủy phiên làm việc. |
+All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Prisma).
 
 ---
 
-## 👤 2. Candidate Module (Ứng viên)
-*Yêu cầu Header: `Authorization: Bearer <accessToken>`*
+## 1. Authentication (Auth)
 
-### 2.1 Profile & Portfolio
-| Feature | Endpoint | Method | Request Body (JSON) | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Xem Profile** | `/api/candidate/profile` | `GET` | (None) | `{ "status": "success", "data": { "fullName": "...", "phone": "...", "role": "candidate", "avatarUrl": "...", "headline": "...", "summary": "...", "address": "...", "city": "...", "dateOfBirth": "2000-01-01T00:00:00.000Z", "gender": "male", "createdAt": "...", "updatedAt": "..." } }` | |
-| **Cập nhật Profile** | `/api/candidate/profile` | `PUT` | `{ "fullName": "Nguyễn Văn B", "phone": "0901234567", "headline": "Junior Dev", "summary": "...", "address": "...", "city": "HCM", "dateOfBirth": "2000-01-01", "gender": "male", "linkedinUrl": "https://..." }` | `{ "status": "success", "message": "Cập nhật thông tin thành công", "data": { "fullName": "...", "email": "...", "headline": "...", ... } }` | |
-| **Kinh nghiệm (Experience)** | `/api/portfolio/experiences` | `GET` | (None) | `{ "status": "success", "data": [{ "id": "uuid", "profileId": "uuid", "title": "Dev", "company": "ABC", "startDate": "...", "endDate": "...", "description": "..." }] }` | |
-| **Thêm Experience** | `/api/portfolio/experiences` | `POST` | `{ "company": "ABC Corp", "title": "Junior Dev", "startDate": "2023-01-01", "endDate": "2024-01-01", "description": "..." }` | `{ "status": "success", "data": {...} }` | |
-| **Học vấn (Education)** | `/api/portfolio/educations` | `GET` | (None) | `{ "status": "success", "data": [{ "id": "uuid", "profileId": "uuid", "school": "ĐH ABC", "degree": "Cử nhân", "field": "CNTT", "startDate": "...", "endDate": "..." }] }` | |
-| **Thêm Education** | `/api/portfolio/educations` | `POST` | `{ "school": "ĐH ABC", "degree": "Cử nhân", "field": "CNTT", "startDate": "2020-01-01", "endDate": "2024-01-01" }` | `{ "status": "success", "data": {...} }` | |
-| **Kỹ năng (Skills)** | `/api/portfolio/skills` | `GET` | (None) | `{ "status": "success", "data": [{ "id": "uuid", "profileId": "uuid", "skillId": "uuid", "skill": { "id": "uuid", "name": "JavaScript" } }] }` | |
-| **Cập nhật Skills** | `/api/portfolio/skills` | `PUT` | `{ "skills": ["React", "NodeJS"] }` | `{ "status": "success", "data": [...] }` | Thay thế toàn bộ danh sách |
+| Method | Path | Auth | Roles | Description |
+|--------|------|------|-------|-------------|
+| POST | `/api/auth/register` | None | — | Register new user (Candidate or Recruiter) |
+| POST | `/api/auth/login` | None | — | Login, returns access + refresh tokens |
+| POST | `/api/auth/refresh-token` | None | — | Get new access token from refresh token |
+| POST | `/api/auth/logout` | Bearer Token | All | Invalidate refresh token |
 
-### 2.2 Quản lý CV (Resume)
-| Feature | Endpoint | Method | Request / Body | Success Response (200/201) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Upload CV** | `/api/resumes/upload` | `POST` | Form-data: `cv` (file PDF) | `{ "status": "success", "message": "Upload CV thành công", "data": { "id": "uuid", "fileUrl": "...", "isDefault": true, "createdAt": "..." } }` | Chỉ nhận PDF, max 5MB |
-| **Danh sách CV** | `/api/resumes` | `GET` | (None) | `{ "status": "success", "count": 2, "data": [{ "id": "uuid", "fileUrl": "...", "isDefault": true, "createdAt": "..." }] }` | |
-| **Đặt mặc định** | `/api/resumes/:id/default` | `PATCH` | (None) | `{ "status": "success", "message": "Đã đặt làm CV mặc định", "data": {...} }` | |
-| **Xóa CV** | `/api/resumes/:id` | `DELETE` | (None) | `{ "status": "success", "message": "Xóa CV thành công" }` | |
+### POST /api/auth/register
 
-### 2.3 Bookmark (Lưu tin)
-| Feature | Endpoint | Method | Request / Body | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Danh sách đã lưu** | `/api/bookmarks` | `GET` | (None) | `{ "status": "success", "count": 2, "data": [{ "bookmarkId": "uuid", "savedAt": "...", "job": { "id": "uuid", "title": "...", "company": {...} } }] }` | Yêu cầu đăng nhập |
-| **Lưu / Bỏ lưu** | `/api/bookmarks/:jobId` | `POST` | (None) | `{ "bookmarked": true, "message": "Đã lưu tin tuyển dụng." }` hoặc `{ "bookmarked": false, "message": "Đã bỏ lưu tin tuyển dụng." }` | Toggle |
+**Request Body:**
+```json
+{
+  "fullName": "Nguyễn Văn A",
+  "email": "abc@gmail.com",
+  "phone": "0901234567",
+  "password": "123456",
+  "companyName": "ABC Corp",
+  "address": "HCM"
+}
+```
+`companyName` and `address` are optional — include both to register as Recruiter, omit for Candidate.
+
+**Success (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "UUID",
+    "email": "abc@gmail.com",
+    "phone": "0901234567",
+    "fullName": "Nguyễn Văn A",
+    "role": "candidate",
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
+  }
+}
+```
+
+### POST /api/auth/login
+
+**Request Body:**
+```json
+{
+  "email": "abc@gmail.com",
+  "password": "123456"
+}
+```
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "UUID",
+    "email": "abc@gmail.com",
+    "phone": "0901234567",
+    "fullName": "Nguyễn Văn A",
+    "role": "candidate",
+    "avatarUrl": "uploads/avatars/...",
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ..."
+  }
+}
+```
+
+### POST /api/auth/refresh-token
+
+**Request Body:**
+```json
+{ "refreshToken": "eyJ..." }
+```
+
+**Success (200):** `{ "accessToken": "eyJ..." }`
+
+### POST /api/auth/logout
+
+**Headers:** `Authorization: Bearer <accessToken>`
+
+**Success (200):** `{ "message": "Đăng xuất thành công" }`
+
+**Errors:**
+| Status | Description |
+|--------|-------------|
+| 400 | Validation error (missing fields, invalid format, duplicate email/phone) |
+| 401 | Invalid credentials or missing/expired token |
+| 403 | Invalid refresh token |
+| 500 | Server error |
 
 ---
 
-## 🏢 3. Recruiter Module (Nhà tuyển dụng)
-*Yêu cầu Header: `Authorization: Bearer <accessToken>`, Role: `RECRUITER`*
+## 2. Candidate Module
 
-### 3.1 Thông tin Công ty & Dashboard
-| Feature | Endpoint | Method | Request Body (JSON) | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Xem Profile** | `/api/employer/` | `GET` | (None) | `{ "status": "success", "data": { "id": "uuid", "name": "ABC Corp", "description": "...", "website": "...", "logoUrl": "...", "address": "...", "city": "...", "size": "50-100", "status": "approved", "rejectionReason": null, "recruiter": { "fullName": "...", "email": "...", "phone": "...", "avatarUrl": "..." } } }` | |
-| **Cập nhật Profile** | `/api/employer/` | `PUT` | `{ "name": "ABC Corp", "description": "...", "website": "...", "address": "...", "city": "HCM", "size": "50-100" }` | `{ "status": "success", "message": "Cập nhật thành công", "data": {...} }` | |
-| **Upload Logo** | `/api/employer/logo` | `PUT` | Form-data: `logo` (image) | `{ "status": "success", "message": "Upload logo thành công", "data": { "logoUrl": "..." } }` | Max 5MB |
-| **Xóa Logo** | `/api/employer/logo` | `DELETE` | (None) | `{ "status": "success", "message": "Xóa logo thành công" }` | |
-| **Dashboard** | `/api/employer/dashboard` | `GET` | (None) | `{ "status": "success", "data": { "companyName": "ABC Corp", "companyStatus": "approved", "jobs": { "total": 10, "approved": 8, "pending": 1, "rejected": 1, "paused": 0 }, "applications": { "total": 50, "submitted": 30, "under_review": 10, "interview": 5, "accepted": 3, "rejected": 2 }, "successRate": "6%", "recentApplications": [...] } }` | Thống kê tổng quan |
+All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 
-### 3.2 Quản lý Tin tuyển dụng (Jobs)
-| Feature | Endpoint | Method | Request Body (JSON) | Success Response (200/201) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Đăng Job** | `/api/employer/jobs` | `POST` | `{ "title": "Tuyển dụng NodeJS", "description": "...", "requirements": "...", "benefits": "...", "salaryMin": 1000, "salaryMax": 2000, "location": "HCM", "jobType": "Full-time", "jobLevel": "Junior", "deadline": "2026-12-31", "skills": ["NodeJS", "Express"] }` | `{ "status": "success", "message": "Đăng tin thành công, đang chờ duyệt", "data": { "id": "uuid", "title": "...", "status": "pending", ... } }` | Trạng thái mặc định: `pending` |
-| **Danh sách Job** | `/api/employer/jobs?status=approved` | `GET` | (None) | `{ "status": "success", "count": 5, "data": [{ "id": "uuid", "title": "...", "status": "...", "company": {...}, "skills": [...] }] }` | Lọc theo `status` |
-| **Toggle Pause** | `/api/employer/jobs/:id/toggle-pause` | `PATCH` | (None) | `{ "status": "success", "message": "Đã tạm dừng tin đăng." }` hoặc `"Đã mở lại tin đăng." }` | `approved` ↔ `paused` |
+### 2.1 Profile
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/candidate/profile` | Get own profile |
+| PUT | `/api/candidate/profile` | Update profile fields |
+
+**GET /api/candidate/profile**
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "UUID",
+    "userId": "UUID",
+    "fullName": "Nguyễn Văn A",
+    "email": "abc@gmail.com",
+    "phone": "0901234567",
+    "role": "candidate",
+    "avatarUrl": "uploads/avatars/...",
+    "headline": "Junior Developer",
+    "summary": "I am a passionate developer...",
+    "address": "123 Đường ABC",
+    "city": "Hồ Chí Minh",
+    "dateOfBirth": "2000-01-01T00:00:00.000Z",
+    "gender": "male",
+    "linkedinUrl": "https://linkedin.com/in/...",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**PUT /api/candidate/profile**
+
+**Request Body:**
+```json
+{
+  "fullName": "Nguyễn Văn B",
+  "phone": "0901234567",
+  "headline": "Senior Developer",
+  "summary": "Experienced developer...",
+  "address": "456 Đường XYZ",
+  "city": "Hà Nội",
+  "dateOfBirth": "2000-01-01",
+  "gender": "male",
+  "linkedinUrl": "https://linkedin.com/in/..."
+}
+```
+
+### 2.2 Avatar
+
+| Method | Path | Description |
+|--------|------|-------------|
+| PUT | `/api/avatar` | Upload or update avatar |
+| DELETE | `/api/avatar` | Delete avatar |
+
+**PUT /api/avatar** — Form-data: `avatar` (image file, max 5MB, JPG/PNG/WEBP)
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "message": "Cập nhật avatar thành công",
+  "data": { "avatar_url": "uploads/avatars/..." }
+}
+```
+
+**DELETE /api/avatar** — **Success (200):** `{ "status": "success", "message": "Xóa avatar thành công" }`
+
+### 2.3 Portfolio (Experiences, Education, Skills)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/portfolio/experiences` | List experiences |
+| POST | `/api/portfolio/experiences` | Add experience |
+| GET | `/api/portfolio/educations` | List education |
+| POST | `/api/portfolio/educations` | Add education |
+| GET | `/api/portfolio/skills` | List skills |
+| PUT | `/api/portfolio/skills` | Replace all skills |
+
+**POST /api/portfolio/experiences**
+
+**Request Body:**
+```json
+{
+  "company": "ABC Corp",
+  "title": "Junior Developer",
+  "startDate": "2023-01-01",
+  "endDate": "2024-01-01",
+  "description": "Worked on full-stack features..."
+}
+```
+
+**POST /api/portfolio/educations**
+
+**Request Body:**
+```json
+{
+  "school": "Đại học ABC",
+  "degree": "Cử nhân",
+  "field": "Công nghệ thông tin",
+  "startDate": "2020-01-01",
+  "endDate": "2024-01-01"
+}
+```
+
+**PUT /api/portfolio/skills**
+
+**Request Body:**
+```json
+{ "skills": ["JavaScript", "Node.js", "React"] }
+```
+
+### 2.4 Resumes (CV)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/resumes/upload` | Upload CV (PDF) |
+| GET | `/api/resumes` | List own CVs |
+| PATCH | `/api/resumes/:id/default` | Set CV as default |
+| DELETE | `/api/resumes/:id` | Delete a CV |
+
+**POST /api/resumes/upload** — Form-data: `cv` (PDF file, max 5MB, max 3 CVs per user)
+
+**Success (201):**
+```json
+{
+  "status": "success",
+  "message": "Upload CV thành công",
+  "data": {
+    "id": "UUID",
+    "fileUrl": "uploads/resumes/...",
+    "isDefault": true,
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**PATCH /api/resumes/:id/default** — **Success (200):** `{ "status": "success", "message": "Đặt CV mặc định thành công", "data": {...} }`
+
+**DELETE /api/resumes/:id** — **Success (200):** `{ "status": "success", "message": "Xóa CV thành công" }`
+
+### 2.5 Applications
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/applications` | Apply for a job |
+| GET | `/api/applications` | List own applications |
+
+**POST /api/applications**
+
+**Request Body:**
+```json
+{
+  "jobId": "UUID",
+  "resumeId": "UUID",
+  "coverLetter": "Tôi rất quan tâm đến vị trí này..."
+}
+```
+`resumeId` is optional (uses default CV if omitted).
+
+**Success (201):**
+```json
+{
+  "message": "Nộp đơn ứng tuyển thành công!",
+  "data": {
+    "id": "UUID",
+    "status": "submitted",
+    "jobId": "UUID",
+    "userId": "UUID",
+    "resumeUrl": "uploads/resumes/...",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### 2.6 Bookmarks
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/bookmarks` | List bookmarked jobs |
+| POST | `/api/bookmarks/:jobId` | Toggle bookmark (save/unsave) |
+
+**POST /api/bookmarks/:jobId** — Toggle. Returns:
+```json
+{ "bookmarked": true, "message": "Đã lưu tin tuyển dụng." }
+```
+or
+```json
+{ "bookmarked": false, "message": "Đã bỏ lưu tin tuyển dụng." }
+```
+
+### 2.7 Job Suggestions (AI)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/suggestions?limit=10` | AI-suggested jobs based on resume vector matching |
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "count": 5,
+  "data": [
+    {
+      "id": "UUID",
+      "title": "NodeJS Developer",
+      "location": "HCM",
+      "jobType": "Full-time",
+      "salaryMin": 1000,
+      "company": { ... },
+      "skills": ["NodeJS", "Express"],
+      "similarityScore": 0.92
+    }
+  ]
+}
+```
+
+### 2.8 Job Chat (AI Assistant)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/chat/chat` | Ask a question about jobs |
+| GET | `/api/chat-history/chat-history` | Get chat history |
+
+**Auth:** Bearer Token, Role: `CANDIDATE`
+
+**POST /api/chat/chat**
+
+**Request Body:**
+```json
+{ "question": "Tôi muốn tìm việc làm NodeJS ở HCM" }
+```
+
+**Success (200):**
+```json
+{ "ans": "Tôi tìm thấy một số công việc phù hợp..." }
+```
+
+**Implementation:** The backend communicates with a local **Qwen 2.5 3B** model via **Ollama** (`http://localhost:11434`). The flow:
+1. User question is cleaned and standardized via text preprocessing pipeline
+2. Question is converted to a vector embedding (HuggingFace Inference API)
+3. Semantic search finds top 3 matching jobs via `pgvector` cosine similarity (`<=>` operator)
+4. Job context is packed into a prompt sent to the local Ollama Qwen 2.5 3B model
+5. Response is returned in Vietnamese
+
+**GET /api/chat-history/chat-history** — Returns all prior Q&A for the user.
 
 ---
 
-## 🤖 4. Tuyển dụng & AI Features (Public / Candidate)
+## 3. Recruiter Module
 
-| Feature | Endpoint | Method | Query / Body | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tìm kiếm (Public)** | `/api/search-jobs/search-jobs?keyword=NodeJS&location=HCM&jobType=Full-time&jobLevel=Junior&salary=1000&page=1&limit=10` | `GET` | Query params | `{ "status": "success", "total_items": 100, "total_pages": 10, "current_page": 1, "jobs": [{ "id": "uuid", "title": "NodeJS Dev", "location": "HCM", "jobType": "Full-time", "salaryMin": 1000, "company": {...}, "skills": [...], "similarityScore": 0.85 }] }` | Sử dụng Vector Search (`job_vectors`) khi có từ khóa, fallback text search |
-| **Gợi ý việc làm (AI)** | `/api/suggestions?limit=10` | `GET` | Query: `limit` (optional) | `{ "status": "success", "data": [{ "id": "uuid", "title": "...", "location": "...", "jobType": "...", "salaryMin": 1000, "company": {...}, "skills": [...], "similarityScore": 0.92 }] }` | Sử dụng Vector Matching từ `resume_vectors` |
-| **Nộp đơn (Apply)** | `/api/applications` | `POST` | `{ "jobId": "uuid", "resumeId": "uuid", "coverLetter": "Tôi rất quan tâm..." }` | `{ "message": "Nộp đơn ứng tuyển thành công!", "data": { "id": "uuid", "status": "submitted", ... } }` | `resumeId` optional, dùng CV mặc định nếu không có |
-| **Lịch sử ứng tuyển** | `/api/applications` | `GET` | (None) | `{ "status": "success", "count": 5, "data": [{ "id": "uuid", "status": "submitted", "coverLetter": "...", "resumeUrl": "...", "appliedAt": "...", "job": { "id": "uuid", "title": "...", "company": {...} } }] }` | |
+All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
+
+### 3.1 Company Profile
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/employer/profile` | Get company profile |
+| PUT | `/api/employer/profile` | Update company profile |
+| PUT | `/api/employer/logo` | Upload company logo |
+| DELETE | `/api/employer/logo` | Delete company logo |
+
+**GET /api/employer/profile**
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "UUID",
+    "name": "ABC Corp",
+    "description": "A leading tech company...",
+    "website": "https://abccorp.com",
+    "logoUrl": "uploads/logos/...",
+    "address": "123 Đường ABC",
+    "city": "Hồ Chí Minh",
+    "size": "50-100",
+    "status": "approved",
+    "rejectionReason": null,
+    "recruiter": {
+      "fullName": "Nguyễn Văn A",
+      "email": "admin@abccorp.com",
+      "phone": "0901234567",
+      "avatarUrl": "uploads/avatars/..."
+    }
+  }
+}
+```
+
+**PUT /api/employer/profile**
+
+**Request Body:**
+```json
+{
+  "name": "ABC Corp",
+  "description": "Updated description...",
+  "website": "https://abccorp.com",
+  "address": "456 Đường XYZ",
+  "city": "Hà Nội",
+  "size": "100-200"
+}
+```
+
+**PUT /api/employer/logo** — Form-data: `logo` (image, max 5MB). **DELETE /api/employer/logo** — no body.
+
+### 3.2 Job Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/employer/jobs` | Post a new job (status: pending) |
+| GET | `/api/employer/jobs?status=pending\|approved\|rejected\|paused` | List own jobs |
+| PATCH | `/api/employer/jobs/:id/toggle-pause` | Toggle pause/resume |
+
+**POST /api/employer/jobs**
+
+**Request Body:**
+```json
+{
+  "title": "Tuyển NodeJS Developer",
+  "description": "We are looking for...",
+  "requirements": "3+ years experience...",
+  "benefits": "Salary, healthcare...",
+  "salaryMin": 1000,
+  "salaryMax": 2000,
+  "location": "Hồ Chí Minh",
+  "jobType": "Full-time",
+  "jobLevel": "Junior",
+  "deadline": "2026-12-31",
+  "skills": ["NodeJS", "Express", "PostgreSQL"]
+}
+```
+
+**Success (201):**
+```json
+{
+  "message": "Đăng tin tuyển dụng thành công! Đang chờ Admin duyệt.",
+  "data": {
+    "id": "UUID",
+    "title": "Tuyển NodeJS Developer",
+    "status": "pending",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**PATCH /api/employer/jobs/:id/toggle-pause** — Toggles `approved` ↔ `paused`.
+
+### 3.3 Applicant Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/employer/applicants?status=submitted\|under_review\|interview\|accepted\|rejected` | List all applicants |
+| GET | `/api/employer/applicants/:applicationId` | Application detail |
+| GET | `/api/employer/applicants/:applicationId/cv?mode=view\|download` | View/download CV PDF |
+| PATCH | `/api/employer/applicants/:applicationId/status` | Update application status |
+
+**PATCH /api/employer/applicants/:applicationId/status**
+
+**Request Body:**
+```json
+{
+  "status": "under_review",
+  "note": "Will schedule an interview"
+}
+```
+
+Valid statuses: `submitted` → `under_review` → `interview` → `accepted`|`rejected`
+
+### 3.4 Dashboard
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/employer/dashboard` | Company statistics |
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "companyName": "ABC Corp",
+    "companyStatus": "approved",
+    "jobs": { "total": 10, "approved": 8, "pending": 1, "rejected": 1, "paused": 0 },
+    "applications": {
+      "total": 50,
+      "submitted": 30,
+      "under_review": 10,
+      "interview": 5,
+      "accepted": 3,
+      "rejected": 2
+    },
+    "successRate": "6%",
+    "recentApplications": [ ... ]
+  }
+}
+```
 
 ---
 
-## 🛡️ 5. Admin Module (Quản trị viên)
-*Yêu cầu Header: `Authorization: Bearer <accessToken>`, Role: `ADMIN`*
+## 4. Public Endpoints
+
+No authentication required.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/public/jobs/:id` | View job detail |
+| GET | `/api/public/companies/:id` | View company detail |
+| GET | `/api/search-jobs/search-jobs?keyword=...&location=...&jobType=...&jobLevel=...&salary=...&page=1&limit=10` | Search jobs |
+
+**GET /api/search-jobs/search-jobs**
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| keyword | string | Search keyword (uses vector search, fallback to text search) |
+| location | string | Filter by location |
+| jobType | string | Filter by type (Full-time, Part-time, etc.) |
+| jobLevel | string | Filter by level (Junior, Senior, etc.) |
+| salary | number | Minimum salary filter |
+| page | number | Page number (default: 1) |
+| limit | number | Items per page (default: 10, max: 50) |
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "message": "Tìm kiếm việc làm thành công",
+  "data": {
+    "total_items": 100,
+    "total_pages": 10,
+    "current_page": 1,
+    "jobs": [
+      {
+        "id": "UUID",
+        "title": "NodeJS Developer",
+        "location": "Hồ Chí Minh",
+        "jobType": "Full-time",
+        "salaryMin": 1000,
+        "salaryMax": 2000,
+        "company": { ... },
+        "skills": ["NodeJS"],
+        "similarityScore": 0.85
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 5. Admin Module
+
+All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 
 ### 5.1 User Management
-| Feature | Endpoint | Method | Query / Body | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Danh sách Users** | `/api/admin/users?role=candidate&isActive=true&keyword=nguyen&page=1&limit=10` | `GET` | Query params | `{ "status": "success", "count": 2, "data": [{ "id": "uuid", "email": "abc@gmail.com", "fullName": "Nguyễn Văn A", "role": "candidate", "phone": "...", "avatarUrl": "...", "isActive": true, "createdAt": "...", "updatedAt": "..." }] }` | Lọc theo `role`, `isActive`, `keyword` |
-| **Toggle Khóa/Mở** | `/api/admin/users/:id/toggle-lock` | `PATCH` | (None) | `{ "id": "uuid", "fullName": "...", "email": "...", "role": "candidate", "isActive": false, "message": "Đã khóa tài khoản." }` | Toggle `isActive` |
-| **Xóa User** | `/api/admin/users/:id` | `DELETE` | (None) | `{ "message": "Đã xóa user thành công" }` | Không thể xóa Admin |
 
-### 5.2 Company & Job Browsing (Admin)
-| Feature | Endpoint | Method | Query / Body | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Danh sách Companies** | `/api/admin/companies` | `GET` | (None) | `{ "status": "success", "data": [...] }` | Admin xem tất cả công ty |
-| **Duyệt/Reject Company** | `/api/admin/companies/:id/approve` | `PATCH` | `{ "status": "approved" }` | `{ "status": "success", "data": {...} }` | Admin duyệt hồ sơ công ty |
-| **Danh sách Jobs (Admin)** | `/api/admin/jobs` | `GET` | (None) | `{ "status": "success", "data": [...] }` | Admin xem tất cả job |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/users?role=candidate\|recruiter&isActive=true\|false&keyword=...&page=1&limit=10` | List all users |
+| PATCH | `/api/admin/users/:id/toggle-lock` | Toggle lock/unlock user |
+| DELETE | `/api/admin/users/:id` | Delete user (not Admins) |
 
-### 5.3 Statistics & Reports (Admin)
-| Feature | Endpoint | Method | Query / Body | Success Response (200) | Note |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tổng quan hệ thống** | `/api/admin/reports/overview` | `GET` | (None) | `{ "status": "success", "data": { "users": { "total": 1000, "candidates": 800, "recruiters": 200 }, "companies": { "total": 50, "approved": 45, "pending": 5 }, "jobs": { "total": 200, "approved": 180, "pending": 10, "rejected": 10 }, "applications": { "total": 500, "accepted": 50, "successRate": "10%" } } }` | Thống kê tổng quan |
-| **Tăng trưởng User** | `/api/admin/reports/users/growth` | `GET` | (None) | `{ "status": "success", "data": [{ "month": "2025-06", "candidate": 50, "recruiter": 10, "total": 60 }] }` | 12 tháng gần nhất |
-| **Đơn ứng tuyển theo tháng** | `/api/admin/reports/applications/monthly` | `GET` | (None) | `{ "status": "success", "data": [{ "month": "2025-06", "total": 100, "accepted": 20, "rejected": 30 }] }` | 12 tháng gần nhất |
-| **Job theo loại hình** | `/api/admin/reports/jobs/by-type` | `GET` | (None) | `{ "status": "success", "data": [{ "jobType": "Full-time", "count": 100 }, { "jobType": "Part-time", "count": 50 }] }` | Thống kê theo `jobType` |
-| **Job theo cấp độ** | `/api/admin/reports/jobs/by-level` | `GET` | (None) | `{ "status": "success", "data": [{ "jobLevel": "Junior", "count": 80 }, { "jobLevel": "Senior", "count": 40 }] }` | Thống kê theo `jobLevel` |
+### 5.2 Company Review
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/companies` | List all companies |
+| GET | `/api/admin/companies/pending` | List pending companies |
+| PATCH | `/api/admin/companies/:id/review` | Approve or reject company |
+
+**PATCH /api/admin/companies/:id/review**
+
+**Request Body:**
+```json
+{
+  "action": "approved",
+  "reason": "Valid business documents"
+}
+```
+`action`: `approved` | `rejected` (required). `reason` required when `action = 'rejected'`.
+
+### 5.3 Job Review
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/jobs?status=pending\|approved\|rejected\|paused` | List all jobs |
+| GET | `/api/admin/jobs/pending` | List pending jobs |
+| GET | `/api/admin/jobs/:id` | Job detail for review |
+| PATCH | `/api/admin/jobs/:id/review` | Approve or reject job |
+| DELETE | `/api/admin/jobs/:id` | Delete violating job |
+
+**PATCH /api/admin/jobs/:id/review**
+
+**Request Body:**
+```json
+{
+  "action": "approved",
+  "reason": "Valid job posting"
+}
+```
+
+### 5.4 Reports & Statistics
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/reports/overview` | System-wide statistics |
+| GET | `/api/admin/reports/users/growth` | User growth (12 months) |
+| GET | `/api/admin/reports/applications/monthly` | Applications by month (12 months) |
+| GET | `/api/admin/reports/jobs/by-type` | Jobs grouped by type |
+| GET | `/api/admin/reports/jobs/by-level` | Jobs grouped by level |
 
 ---
 
-## 🛠 6. HTTP Error Codes
-| Code | Meaning | Example Message |
-| :--- | :--- | :--- |
-| **200 / 201** | Thành công | `"Đăng nhập thành công"`, `"Nộp đơn ứng tuyển thành công!"` |
-| **400 (Bad Request)** | Dữ liệu đầu vào sai format hoặc thiếu trường bắt buộc | `"Email, password, họ tên và số điện thoại là bắt buộc"`, `"Tiêu đề công việc không được để trống."` |
-| **401 (Unauthorized)** | Thiếu hoặc sai Access Token | `"Vui lòng cung cấp Refresh Token"`, `"Email hoặc mật khẩu không đúng"` |
-| **403 (Forbidden)** | Sai quyền truy cập (Role không khớp) | `"Không thể xóa tài khoản Admin."`, `"Không thể khóa tài khoản Admin."` |
-| **404 (Not Found)** | ID tài nguyên không tồn tại trong Database | `"Không tìm thấy đơn ứng tuyển."`, `"Công việc không tồn tại hoặc đã đóng tuyển."` |
-| **500 (Internal Server Error)** | Lỗi server không xác định | `"Lỗi server khi tìm kiếm việc làm"`, `"Lỗi server khi nộp đơn ứng tuyển"` |
+## 6. Error Codes
+
+| Status | Meaning | Example Message |
+|--------|---------|-----------------|
+| 200 / 201 | Success | `"Đăng nhập thành công"`, `"Nộp đơn ứng tuyển thành công!"` |
+| 400 | Bad Request — missing/invalid fields | `"Email, password, họ tên và số điện thoại là bắt buộc"`, `"Tiêu đề công việc không được để trống."` |
+| 401 | Unauthorized — no/invalid token | `"Email hoặc mật khẩu không đúng"`, `"Token không hợp lệ hoặc đã hết hạn."` |
+| 403 | Forbidden — insufficient role | `"Bạn không có quyền truy cập"`, `"Không thể xóa tài khoản Admin."` |
+| 404 | Not Found | `"Không tìm thấy đơn ứng tuyển."`, `"Công việc không tồn tại hoặc đã đóng tuyển."` |
+| 409 | Conflict | `"Công ty này đã được xử lý"`, `"Tin tuyển dụng này đã được xử lý"` |
+| 500 | Server Error | `"Lỗi server khi tìm kiếm việc làm"` |
 
 ---
 
-## 📝 7. Data Model Conventions
-- **ID Fields**: Tất cả sử dụng UUID (`String @id @default(uuid())` trong Prisma)
-- **Naming**: API sử dụng `camelCase` cho tất cả Request/Response fields (ví dụ: `fullName`, `jobType`, `salaryMin`)
-- **Database**: Prisma schema sử dụng `@map("snake_case")` để ánh xạ với cột DB, code sử dụng camelCase
-- **Enums/Status**: `pending`, `approved`, `rejected`, `paused` (Jobs); `submitted`, `under_review`, `interview`, `accepted`, `rejected` (Applications)
-- **Vector Search**: AI features sử dụng `resume_vectors` và `job_vectors` với `pgvector` extension, toán tử `<=>` cho cosine similarity
+## 7. Chat / LLM Endpoints (AI Job Assistant)
+
+**Auth:** Bearer Token, Role: `CANDIDATE`
+
+### POST /api/chat/chat
+
+Submit a natural-language question about jobs. The backend:
+1. Cleans and standardizes the text (Vietnamese text preprocessing)
+2. Generates a vector embedding via **HuggingFace Inference API**
+3. Performs **semantic search** across `job_vectors` using `pgvector` (`<=>` cosine similarity, threshold > 0.4)
+4. Packages the top 3 matching jobs as context
+5. Sends the prompt to a local **Qwen 2.5 3B** model running on **Ollama** (`http://localhost:11434`)
+6. Returns the model's response in Vietnamese
+
+**Request Body:**
+```json
+{ "question": "Có việc làm NodeJS nào ở HCM không?" }
+```
+
+**Success (200):**
+```json
+{ "ans": "Tôi tìm thấy một số công việc NodeJS phù hợp tại Hồ Chí Minh..." }
+```
+
+### GET /api/chat-history/chat-history
+
+Returns all past Q&A sessions for the authenticated candidate.
+
+---
+
+## 8. Data Conventions
+
+- **IDs:** All UUID (`String @id @default(uuid()) @db.Uuid`)
+- **Request/Response:** `camelCase` for all fields (`fullName`, `jobType`, `salaryMin`)
+- **Database columns:** `snake_case` mapped via `@map("column_name")`
+- **Job statuses:** `pending` → `approved` | `rejected`, also `paused`
+- **Application statuses:** `submitted` → `under_review` → `interview` → `accepted` | `rejected`
+- **Company statuses:** `pending` → `approved` | `rejected`
+- **Vector search:** Uses `pgvector` extension with `job_vectors` and `resume_vectors` tables

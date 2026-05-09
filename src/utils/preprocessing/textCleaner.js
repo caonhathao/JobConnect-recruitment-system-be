@@ -1,6 +1,6 @@
 /**
- * 
- * @param {String} text 
+ *
+ * @param {String} text
  */
 const clean = (text) => {
   if (!text) return "";
@@ -20,8 +20,8 @@ const noiseRemoval = (text) => {
 
 // Remove emojis using a regex pattern that matches a wide range of emoji characters
 /**
- * 
- * @param {String} text 
+ *
+ * @param {String} text
  */
 const removeEmojis = (text) => {
   return text.replace(
@@ -35,10 +35,10 @@ const removeEmojis = (text) => {
  */
 
 /**
- * 
- * @param {*} job 
+ *
+ * @param {*} job
  */
-const cleaningText = (job) => {
+const cleaningJob = (job) => {
   if (!job) return null;
   const title = clean(job.title);
   const desc = clean(job.description);
@@ -65,4 +65,17 @@ const cleaningText = (job) => {
             Benefits: ${benefits}.`.replace(/\s+/g, " ");
 };
 
-module.exports = { cleaningText };
+/**
+ *
+ * @param {String} text
+ */
+const cleaningText = (text) => {
+  if (!text) return null;
+  const cleaned = clean(text);
+  // If more than 30% of the text was removed, it might be too noisy, so we can choose to return an empty string or the original text
+  if (cleaned.length < text.length * 0.7) {
+    return null;
+  }
+  return cleaned;
+};
+module.exports = { cleaningText, cleaningJob };

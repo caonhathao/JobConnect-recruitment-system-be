@@ -18,6 +18,8 @@ const client = new InferenceClient(process.env.HF_TOKEN);
  */
 
 const textEmbedding = async (text) => {
+  if (!text) return null;
+
   const maxRetries = 3;
   const baseDelay = 1000;
 

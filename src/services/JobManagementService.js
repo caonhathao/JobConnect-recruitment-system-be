@@ -1,5 +1,5 @@
 const prisma = require("../config/prisma");
-const JobVectorService = require("./JobVectorService");
+const JobVectorService = require("./jobVector.services");
 const _getApprovedCompany = async (userId) => {
   const company = await prisma.company.findUnique({ where: { userId } });
   if (!company) throw new Error("Bạn chưa có hồ sơ công ty.");

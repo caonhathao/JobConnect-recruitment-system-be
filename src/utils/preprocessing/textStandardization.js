@@ -107,6 +107,8 @@ const removeStopWords = (text) => {
   return text.replace(regex, " ").replace(/\s+/g, " ").trim();
 };
 
+/** * @param {String} text
+ */
 const textStandardization = (text) => {
   if (!text) return null;
   if (typeof text !== "string") return text;

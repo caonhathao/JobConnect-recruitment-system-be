@@ -78,7 +78,7 @@ app.use('/api/chat-history', jobChatRoutes);
 app.use("/api/admin/companies", adminCompanyRoutes);
 app.use("/api/admin/jobs", adminJobRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
-app.use("/api/admin/users   ", adminRoutes);
+app.use("/api/admin/users", adminRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

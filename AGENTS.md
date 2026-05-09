@@ -3,39 +3,31 @@
 ## Build & Development Commands
 
 ```bash
-# Install dependencies
-npm install
+npm install          # Install dependencies
+npm run dev          # Dev mode with nodemon auto-reload
+npm start            # Production mode (node server.js)
+npm run seed         # Seed database (node prisma/seed.js)
 
-# Run in development mode (with auto-reload via nodemon)
-npm run dev
+# Database (Prisma)
+npm run db:push      # Push schema to DB
+npm run db:migrate   # Run migrations
+npm run generate     # Generate Prisma client (output: prisma/src/generated/)
+npm run studio       # Open Prisma Studio on port 8888
 
-# Run in production mode
-npm start
-
-# Database commands
-npm run db:push          # Push Prisma schema changes to database
-npm run db:migrate       # Run Prisma migrations
-npm run generate         # Generate Prisma client (output: prisma/src/generated/)
-npm run studio            # Open Prisma Studio on port 8888
-
-# Testing (Jest + Supertest)
-npm test                  # Run all integration tests in tests/integration/
-
-# Run a single test file:
-npx jest tests/integration/auth.test.js
-
-# Run tests matching a pattern:
-npx jest --testNamePattern="login"
+# Testing
+npm test                               # All integration tests (tests/integration/)
+npx jest tests/integration/auth.test.js # Single test file
+npx jest --testNamePattern="login"     # Tests matching pattern
 ```
 
 ## Code Style Guidelines
 
 ### Language & Imports
-- **JavaScript** (CommonJS) using `require()` / `module.exports`
-- No TypeScript in source files (despite `tsconfig.json` existing for tooling support)
-- Group imports in order: Node built-ins → npm packages → local modules
-- Use relative paths for local imports: `require('../services/authService')`
-- Example:
+- **JavaScript** (CommonJS) — `require()` / `module.exports`
+- No TypeScript in source (tsconfig.json exists only for editor tooling)
+- No ESM import/export syntax in runtime code
+- Import order: Node built-ins → npm packages → local modules
+- Relative paths for local imports: `require('../services/authService')`
 ```javascript
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -44,110 +36,122 @@ const ROLES = require('../constants/roles');
 ```
 
 ### Naming Conventions
-- **Files**: camelCase with some inconsistencies allowed (e.g., `authController.js`, `ResumeService.js`, `candidate_Routes.js`)
+- **Files**: camelCase (some inconsistency allowed: `authController.js`, `ResumeService.js`, `candidate_Routes.js`)
 - **Variables/functions**: camelCase (`fullName`, `accessToken`, `matchPassword`)
 - **Database columns**: snake_case in Prisma schema (`full_name`, `avatar_url`, `created_at`)
 - **Constants**: UPPER_SNAKE_CASE (`ROLES` in `src/constants/roles.js`)
 - **Models/Classes**: PascalCase (`User`, `Company`, `Candidate_profile`)
-- **Routes**: Use `[resource]_Routes.js` or `[resource]Routes.js` pattern
+- **Routes**: `[resource]_Routes.js` or `[resource]Routes.js` pattern
+- **Controllers/services**: `[resource]Controller.js` / `[resource]Service.js` (PascalCase resource prefix common)
 
 ### Architecture Pattern
-Follow the **Controller-Service-Model** layered architecture:
-- `src/controllers/` - HTTP request handlers, extract input from req.body/params, format responses
-- `src/services/` - Business logic, input validation, database operations
-- `prisma/schema/` - Prisma schema files for database schema management (multi-file structure)
-- `src/routes/` - Express route definitions with middleware chains
-- `src/middleware/` - Auth (`protect`, `authorize`), upload handlers, request processing
-- `src/config/` - Database config, multer configs
-- `src/utils/` - Token utilities (`generateToken`), helpers
-- `src/constants/` - Role definitions (`CANDIDATE`, `RECRUITER`, `ADMIN`), enums
+**Controller-Service** layered architecture (no model layer — Prisma is the ORM):
+- `src/controllers/` — HTTP handlers, extract input from req, format responses
+- `src/services/` — Business logic, validation, DB operations via Prisma
+- `src/routes/` — Express route definitions with middleware chains
+- `src/middleware/` — Auth (`protect`, `authorize`), file upload handlers
+- `src/config/` — Prisma client init, multer configs
+- `src/utils/` — Token utils (`generateAccessToken`, `generateRefreshToken`, `verifyRefreshToken`), text preprocessing
+- `src/constants/` — Role definitions (`CANDIDATE`, `RECRUITER`, `ADMIN`), enums
+- `src/scheduler/` — Cron jobs via `node-cron` (e.g., `jobVectorRetry.js`)
+- `src/lib/models/` — Legacy Sequelize models (not actively used)
 
-### ORM Setup (Prisma Primary)
-- **Prisma** is the primary ORM for all runtime database operations
-- Schema files in `prisma/schema/` (multi-file structure: `auth.prisma`, `job.prisma`, `candidate.prisma`, `company.prisma`, `rag.prisma`)
-- `prisma/schema/schema.prisma` is the root file that includes others
-- Generated Prisma client outputs to `prisma/src/generated/`
-- Model definitions in Prisma: `String @id @default(uuid())` for UUID primary keys
-- Timestamps mapping: `@map("created_at")` in Prisma schema to snake_case DB columns
-- Code uses camelCase for all Prisma queries: `prisma.user.findMany({ where: { fullName: ... } })`
-- Sequelize models may exist in `src/models/` but Prisma is used for all current operations
+### Prisma ORM
+- Primary ORM for all runtime DB operations
+- Schema: `prisma/schema/schema.prisma` (root) + includes: `auth.prisma`, `job.prisma`, `candidate.prisma`, `company.prisma`, `rag.prisma`, `chats.prisma`, `other.prisma`
+- Client: `prisma/src/generated/` (output of `npm run generate`)
+- Connection: `src/config/prisma.js` uses `@prisma/adapter-pg` with `pg` Pool (global singleton in dev)
+- UUID primary keys: `String @id @default(uuid())`
+- Timestamps mapped to snake_case: `@map("created_at")`
+- Prisma queries use camelCase: `prisma.user.findMany({ where: { fullName: ... } })`
+- Transactions: `prisma.$transaction(async (tx) => { ... })`
 
 ### Error Handling
-- Use try-catch blocks in controllers and services
-- Throw errors with Vietnamese messages: `throw new Error('Email đã được sử dụng')`
-- Return appropriate HTTP status codes:
-  - `400` for validation errors
-  - `401` for authentication failures
-  - `403` for authorization failures
-  - `404` for not found
-  - `500` for server errors
-- Controller pattern:
+- try-catch in controllers + services
+- Errors thrown with **Vietnamese messages**: `throw new Error('Email đã được sử dụng')`
+- Controller maps error.message to status codes:
+  - `400` — validation/user errors
+  - `401` — auth failures
+  - `403` — forbidden/refresh token invalid
+  - `404` — not found
+  - `500` — server errors
+- Array-based error matching pattern (controllers match known error messages):
 ```javascript
-try {
-    const result = await service.method(data);
-    return res.status(200).json({ status: 'success', data: result });
-} catch (error) {
-    console.error(error);
-    if (error.message === 'Specific error') {
+catch (error) {
+    const clientErrors = ['Email đã được sử dụng', 'Số điện thoại đã được sử dụng'];
+    if (clientErrors.includes(error.message)) {
         return res.status(400).json({ message: error.message });
     }
     res.status(500).json({ message: 'Lỗi server', error: error.message });
 }
 ```
 
-### Validation
-- Input validation in **service layer** (not controllers)
-- Use regex patterns for format validation (email, phone, etc.)
-- Prisma model validations for schema-level checks
-- Trim inputs: `data.email?.trim()`
-- Check for empty strings and null values before processing
-- **Current standard**: All API fields use **camelCase** (`fullName`, `jobId`, `salaryMin`, `jobType`, `dateOfBirth`)
-
 ### Response Format
 ```javascript
 // Success
 res.status(200).json({ status: 'success', data: result })
-
 // Error
 res.status(400).json({ message: 'Error message' })
-
-// List responses
+// List
 res.status(200).json({ status: 'success', data: items, total: count })
 ```
 
+### Input Validation
+- In **service layer** (not controllers)
+- Regex validation (email: `/^[a-zA-Z0-9.]+@gmail\.com$/`, phone: `/^0\d{9}$/`, name: `/^[a-zA-ZÀ-ỹ\s]+$/`)
+- Trim inputs: `data.email?.trim()`
+- All API request/response fields use **camelCase** (`fullName`, `jobId`, `salaryMin`, `dateOfBirth`)
+
 ### Authentication & Authorization
-- JWT-based with access/refresh token pattern
-- Tokens stored in database (`refreshToken` field in users table)
-- Auth middleware: `protect` (verify JWT) and `authorize` (check roles)
-- Roles defined in `src/constants/roles.js`: `CANDIDATE`, `RECRUITER`, `ADMIN`
-- Role-based access: `router.post('/jobs', protect, authorize('RECRUITER'), createJob)`
+- JWT access + refresh token pattern
+- **Access token**: `jwt.sign({ id, role }, JWT_SECRET, { expiresIn: '15m' })`
+- **Refresh token**: stored in DB (`user.refreshToken`), `jwt.sign({ id }, JWT_REFRESH_SECRET, { expiresIn: '7d' })`
+- Middleware: `protect` (verifies Bearer token, sets `req.user`) and `authorize('RECRUITER')` (checks role)
+- Roles: `ADMIN`, `CANDIDATE`, `RECRUITER` (from `src/constants/roles.js`, also exports `ROLE_LIST` array)
 
 ### Environment & Security
-- Use `dotenv` for environment variables (load in `server.js`)
-- Never commit `.env` files - check `.gitignore`
-- Password hashing with `bcryptjs` (salt: 10 rounds)
-- Helmet for security headers, CORS enabled, rate limiting with `express-rate-limit`
-- Static file serving: `app.use('/uploads', express.static(...))`
+- `dotenv` loaded in `server.js` and `src/config/prisma.js`
+- Never commit `.env` — in `.gitignore`
+- Password: `bcryptjs` with salt rounds 10
+- Helmet (CORS policy: `cross-origin`), CORS enabled, morgan logging (dev)
+- Rate limiting: `express-rate-limit` (installed but commented out in server.js)
+- Static files: `app.use('/uploads', express.static(...))`
 
-### File Uploads
-- `multer` for handling multipart/form-data
-- Configs in `src/config/multer.js` with destination and filename logic
-- Middleware in `src/middleware/` (`uploadAvatar.js`, `uploadResumes.js`, `logoCompany.js`)
-- Image processing with `sharp` for resizing/optimization
-- Store files in `uploads/` directory with organized subfolders
+### File Uploads (multer + sharp)
+- Configs: `src/config/multer.js` (destination/filename logic)
+- Middleware: `uploadAvatar.js`, `uploadResumes.js`, `logoCompany.js`
+- Image processing with `sharp` for resize/optimization
+- Files stored in `src/uploads/` with organized subfolders
 
-### Linting & Quality Tools
-- No ESLint, Prettier, or other linting/formatting tools configured
-- Agents must manually maintain code consistency with existing patterns
-- Avoid introducing new formatting conventions not present in current codebase
-- No TypeScript linting rules (tsconfig.json exists only for editor tooling support)
+### Route Mounting (server.js)
+```javascript
+app.use('/api/auth', authRoutes);
+app.use('/api/candidate', candidate_profile);
+app.use('/api/employer/profile', employerRoutes);
+app.use('/api/admin/companies', adminCompanyRoutes);
+// ... etc
+```
+- Server exports `app` and `server` for test cleanup: `module.exports = app; module.exports.server = server;`
+- Test files require server: `app = require('../../server');`
+
+### Testing (Jest + Supertest)
+- All tests in `tests/integration/`
+- Pattern: `beforeAll` imports server, tests use `supertest(app)`, `afterAll` not typically used for cleanup
+- Data-dependent tests often query DB via `prisma.user.findFirst()` for real credentials
+- Seed data is populated before test runs (presumably via `npm run seed`)
+
+### Linting & Quality
+- **ESLint** configured: `eslint.config.mjs` with `@eslint/js` recommended rules (CommonJS source type)
+- No npm script for linting — run manually: `npx eslint .`
+- No Prettier or other formatters
+- Maintain consistency manually with existing patterns
+- tsconfig.json exists for editor tooling only
 
 ### Notes for Agents
-- Server entry point: `server.js` (not `src/index.js`)
-- No linting or formatting tools configured (no ESLint/Prettier) - maintain consistency manually
-- Comments in codebase are bilingual (Vietnamese and English) - follow this pattern
-- When adding new features, follow existing controller-service-model pattern
-- **CamelCase Standard**: All API request/response fields use camelCase (updated 2026-05)
-- **Vector Search**: Current APIs use traditional string-matching; RAG/vector features will have dedicated endpoints later
-- **Ghost APIs Removed**: Endpoints not in `API.md` have been removed from routes (2026-05)
-- No Cursor rules (`.cursorrules`, `.cursor/rules/`) or GitHub Copilot rules (`.github/copilot-instructions.md`) exist in this repository
+- Server entry: `server.js`
+- Comments bilingual (Vietnamese + English) — follow this pattern
+- No Cursor rules (`.cursorrules`, `.cursor/rules/`) or Copilot rules (`.github/copilot-instructions.md`) exist
+- **Ghost APIs Removed** (2026-05): Endpoints not in `API.md` removed from routes
+- **Vector Search**: Current APIs use string-matching; RAG/vector features planned for dedicated endpoints
+- Scheduled task: `setupVectorSchedule()` runs daily via `node-cron` for vector retry
+- Scheduler code: `src/scheduler/jobVectorRetry.js`

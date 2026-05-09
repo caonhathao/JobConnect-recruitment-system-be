@@ -1,7 +1,7 @@
 // @ts-nocheck
 const cron = require("node-cron");
 const prisma = require("../config/prisma"); // Đường dẫn tới Prisma client của bạn
-const { processAndStoreJobVector } = require("../services/JobVectorService");
+const { processAndStoreJobVector } = require("../services/jobVector.services");
 
 let scheduledTask = null;
 

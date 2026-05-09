@@ -15,10 +15,14 @@ async function textGeneration(prompt) {
     const response = await ollama.chat({
       model: "qwen2.5:3b",
       messages: [
-        {
+{
           role: "system",
-          content:
-            "Bạn là trợ lý của hệ thống tuyển dụng JobConnect. Chỉ dùng thông tin dưới đây để trả lời câu hỏi liên quan đến việc làm. Nếu câu hổi không liên quan, hãy từ chối lịch sự Câu trả lời bắt buộc phải dùng tiếng Việt.",
+          content: `Bạn là trợ lý ảo của JobConnect. 
+          Nhiệm vụ:
+          1. Chỉ sử dụng thông tin trong danh sách công việc được cung cấp để trả lời.
+          2. Nêu rõ: Tiêu đề, Công ty, Mức lương, Địa điểm.
+          3. Trả lời bằng tiếng Việt. 
+          4. Nếu dữ liệu không liên quan đến câu hỏi, hãy báo không tìm thấy, không tự chế thông tin.`
         },
         { role: "user", content: prompt },
       ],

@@ -7,7 +7,7 @@ const crypto = require("crypto");
  * - Storing and retrieving vectors from the database.
  */
 
-const { cleaningText } = require("../utils/preprocessing/textCleaner");
+const { cleaningJob } = require("../utils/preprocessing/textCleaner");
 const { textChunking } = require("../utils/preprocessing/textChunking");
 const { textEmbedding } = require("../utils/preprocessing/textEmbedding");
 const {
@@ -104,7 +104,7 @@ async function updateExistingJobVector(jobId, processedChunks) {
  */
 async function processAndStoreJobVector(job) {
   // Step 1: Clean the job data to remove noise and irrelevant information
-  const cleanedText = cleaningText(job);
+  const cleanedText = cleaningJob(job);
   if (!cleanedText) {
     console.warn(
       `Job ${job.id} has insufficient content after cleaning. Skipping vectorization.`,

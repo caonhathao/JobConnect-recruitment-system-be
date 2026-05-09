@@ -9,6 +9,7 @@ const prisma = require("../config/prisma");
 exports.chat = async (req, res) => {
   const userId = req.user.id;
   const { question } = req.body;
+  //console.log("Received question:", question);
   const ans = await jobChatService.chat(question);
 
   //storing question and answer to database
