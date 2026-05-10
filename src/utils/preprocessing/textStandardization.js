@@ -2,6 +2,7 @@
  * Normalize Vietnamese text to NFC form to ensure consistent representation of characters with diacritics
  * This is important for Vietnamese text because it can be represented in multiple ways (e.g., using combining characters or precomposed characters). Normalizing to NFC form ensures that all characters are represented in a consistent way, which can improve the quality of text processing and embedding.
  * Additionally, we convert the text to lowercase to further standardize it and reduce the number of unique tokens, which can help improve the quality of embeddings and search results.
+ * @param {*} text
  */
 const normalizeVietnamese = (text) => {
   if (typeof text !== "string") return text;
@@ -45,13 +46,14 @@ const VIETNAMESE_ABBREVIATIONS = {
  * The function iterates through the predefined list of abbreviations and replaces any occurrences in the text with their corresponding expansions.
  * This is particularly useful in job descriptions where abbreviations are common. By expanding these abbreviations, we can improve the quality of the text for embedding and search.
  * The list can be expanded based on the specific domain and common usage in the job postings being processed.
+ * @param {*} text
  */
 const handleAbbreviations = (text) => {
   if (typeof text !== "string") return text;
-  
+
   // Sắp xếp từ điển từ dài đến ngắn để tránh thay thế nhầm (VD: bhxh trước bh)
   const sortedAbbrs = Object.entries(VIETNAMESE_ABBREVIATIONS).sort(
-    (a, b) => b[0].length - a[0].length
+    (a, b) => b[0].length - a[0].length,
   );
 
   for (const [abbr, full] of sortedAbbrs) {
@@ -61,7 +63,10 @@ const handleAbbreviations = (text) => {
      * ${abbr}           : Từ viết tắt
      * (?=$|[\s\)\}\],\.]) : Phía sau là cuối dòng, khoảng trắng, dấu ngoặc đóng hoặc dấu chấm/phẩy
      */
-    const regex = new RegExp(`(?<=^|[\\s\\(\\[\\{])${abbr}(?=$|[\\s\\)\\}\\]\\,\\.])`, "gi");
+    const regex = new RegExp(
+      `(?<=^|[\\s\\(\\[\\{])${abbr}(?=$|[\\s\\)\\}\\]\\,\\.])`,
+      "gi",
+    );
     text = text.replace(regex, full);
   }
   return text;
@@ -96,6 +101,11 @@ const VIETNAMESE_STOP_WORDS = [
   "nhưng",
   // Add more stop words as needed
 ];
+/**
+ *
+ * @param {*} text
+ * @returns
+ */
 const removeStopWords = (text) => {
   if (typeof text !== "string") return text;
 
@@ -107,7 +117,8 @@ const removeStopWords = (text) => {
   return text.replace(regex, " ").replace(/\s+/g, " ").trim();
 };
 
-/** * @param {String} text
+/**
+ * * @param {String} text
  */
 const textStandardization = (text) => {
   if (!text) return null;

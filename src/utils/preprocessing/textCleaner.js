@@ -8,9 +8,13 @@ const clean = (text) => {
   return noiseRemoval(removeEmojis(text));
 };
 
-// Remove control characters, HTML tags, emojis, and normalize Vietnamese text
+/**
+* Remove control characters, HTML tags, emojis, and normalize Vietnamese text
+ * @param {String} text
+ */
 const noiseRemoval = (text) => {
   return text
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1F\x7F]/g, " ") // Remove control characters
     .replace(/<[^>]*>/g, " ") // remove HTML tags
     .replace(/\s+/g, " ") // replace multiple whitespace with single space

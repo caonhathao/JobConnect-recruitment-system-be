@@ -25,7 +25,7 @@ const {
  * @param {string} jobId - job ID
  * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
  */
-async function storeNewJobVector(jobId, processedChunks) {
+async function _storeNewJobVector(jobId, processedChunks) {
   if (!jobId || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
@@ -155,7 +155,7 @@ async function processAndStoreJobVector(job) {
 
   if (!existingChunks || existingChunks.length === 0) {
     // Step 6: Store the processed chunks and their embeddings in the database
-    await storeNewJobVector(job.id, processedChunks);
+    await _storeNewJobVector(job.id, processedChunks);
   } else {
     await updateExistingJobVector(job.id, processedChunks);
   }

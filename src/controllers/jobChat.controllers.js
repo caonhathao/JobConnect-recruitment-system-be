@@ -8,16 +8,16 @@ const prisma = require("../config/prisma");
  */
 exports.chat = async (req, res) => {
   const userId = req.user.id;
-  const { question } = req.body;
+  const { question, resumeId } = req.body;
   //console.log("Received question:", question);
-  const ans = await jobChatService.chat(question);
+  const ans = await jobChatService.chat(question, userId, resumeId);
 
   //storing question and answer to database
   await prisma.userChat.create({
     data: {
       userId: userId,
       question: question,
-      answer: ans,
+      answer: ans ?? "",
     },
   });
 
