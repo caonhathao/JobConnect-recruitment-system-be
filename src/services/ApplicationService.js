@@ -52,9 +52,9 @@ exports.applyJob = async (userId, data) => {
 exports.getMyApplications = async (userId, filters = {}) => {
     const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
     const pageNumber = Math.max(1, parseInt(filters.page) || 1);
-    const skip = (pageNumber - 1) * pageSize;
-
-    const where = { userId };
+    const offset     = (pageNumber - 1) * pageSize;
+    
+    const where = { user_id: userId, is_deleted: false }; 
     if (filters.status) where.status = filters.status;
 
     const [count, applications] = await Promise.all([
@@ -114,14 +114,39 @@ exports.getApplicationDetail = async (userId, applicationId) => {
     return app;
 };
 
+// ==============================================================================
+// 4. RÚT ĐƠN ỨNG TUYỂN (chỉ khi status = submitted)
+// ==============================================================================
+
 exports.withdrawApplication = async (userId, applicationId) => {
-    const app = await prisma.application.findFirst({ where: { id: applicationId, userId } });
+    const app = await Application.findOne({ 
+        where: { id: applicationId, user_id: userId } 
+    });
     if (!app) throw new Error('Không tìm thấy đơn ứng tuyển.');
 
     if (app.status !== 'submitted') {
         throw new Error('Chỉ có thể rút đơn khi hồ sơ đang ở trạng thái "Đã nộp".');
     }
 
-    await prisma.application.delete({ where: { id: applicationId } });
+    // ✅ Soft delete thay vì destroy()
+    await app.update({ is_deleted: true });
+    return true;
+};
+// ==============================================================================
+// 5. Xóa đơn đó nếu bị từ chối
+// ==============================================================================   
+
+exports.deleteRejectedApplication = async (userId, applicationId) => {
+    const app = await Application.findOne({ 
+        where: { id: applicationId, user_id: userId } 
+    });
+    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển.');
+
+    if (app.status !== 'rejected') {
+        throw new Error('Chỉ có thể xóa đơn khi hồ sơ đã bị từ chối.');
+    }
+
+    // ✅ Soft delete — giữ lại record để excludeClause vẫn hoạt động
+    await app.update({ is_deleted: true });
     return true;
 };

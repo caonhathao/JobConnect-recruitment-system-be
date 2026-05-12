@@ -202,26 +202,40 @@ exports.getCvFile = async (userId, applicationId, mode = 'view') => {
     return { filePath, fileName: path.basename(filePath), mode };
 };
 
-const VALID_STATUS_FLOW = ['submitted', 'under_review', 'interview', 'accepted', 'rejected'];
+// ==============================================================================
+// 5. CẬP NHẬT TRẠNG THÁI ĐƠN ỨNG TUYỂN
+const VALID_TRANSITIONS = {
+    submitted:    ['under_review', 'rejected'],
+    under_review: ['interview',    'rejected'],
+    interview:    ['accepted',     'rejected'],
+    accepted:     [],
+    rejected:     []
+};
 
-exports.updateApplicationStatus = async (userId, applicationId, status) => {
-    if (!VALID_STATUS_FLOW.includes(status)) {
-        throw new Error(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${VALID_STATUS_FLOW.join(', ')}`);
-    }
+exports.updateApplicationStatus = async (userId, applicationId, status, note) => {
+    const validStatuses = Object.keys(VALID_TRANSITIONS);
+    if (!validStatuses.includes(status)) {
+        throw new Error(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}`);
+    }   
 
     const companyId = await _getCompanyId(userId);
-    const jobIds = await _getJobIds(companyId);
+    const jobIds    = await _getJobIds(companyId);
 
     const app = await prisma.application.findFirst({
         where: { id: applicationId, jobId: { in: jobIds } }
     });
     if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.');
 
-    const currentIdx = VALID_STATUS_FLOW.indexOf(app.status);
-    const newIdx = VALID_STATUS_FLOW.indexOf(status);
+    const allowedNext = VALID_TRANSITIONS[app.status];
 
-    if (newIdx < currentIdx && status !== 'rejected') {
-        throw new Error('Không thể quay lại trạng thái trước đó.');
+    // Trạng thái cuối không thể thay đổi
+    if (allowedNext.length === 0) {
+        throw new Error(`Đơn ứng tuyển đã ở trạng thái "${app.status}", không thể thay đổi.`);
+    }
+
+    // Không nằm trong danh sách cho phép
+    if (!allowedNext.includes(status)) {
+        throw new Error(`Không thể chuyển từ "${app.status}" sang "${status}".`);
     }
 
     await prisma.application.update({
@@ -230,4 +244,20 @@ exports.updateApplicationStatus = async (userId, applicationId, status) => {
     });
 
     return await prisma.application.findUnique({ where: { id: applicationId } });
+};
+
+// ==============================================================================
+// 6. XÓA ĐƠN ỨNG TUYỂN
+// ==============================================================================
+exports.deleteApplication = async (userId, applicationId) => {
+    const companyId = await _getCompanyId(userId);
+    const jobIds    = await _getJobIds(companyId);
+
+    const app = await Application.findOne({
+        where: { id: applicationId, job_id: jobIds }
+    });
+    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.');
+
+    await app.destroy();
+    return true;
 };

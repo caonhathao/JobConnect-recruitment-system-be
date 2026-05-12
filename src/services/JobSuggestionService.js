@@ -12,24 +12,39 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
         }
     });
 
-    const appliedApplications = await prisma.application.findMany({
-        where: { userId },
-        select: { jobId: true }
+    // 2. Lấy tất cả job đã apply (kể cả đã xóa/rút) để loại trừ
+    const appliedApplications = await Application.findAll({
+        where: { user_id: userId },
+        attributes: ['job_id']
     });
-    const appliedJobIds = appliedApplications.map(a => a.jobId);
 
+    const appliedJobIds = appliedApplications.map(a => a.job_id);
+
+    const excludeClause = appliedJobIds.length > 0
+        ? { id: { [Op.notIn]: appliedJobIds } }
+        : {};
+
+    const deadlineClause = {
+        [Op.or]: [
+            { deadline: { [Op.gt]: sequelize.fn('NOW') } },
+            { deadline: null }
+        ]
+    };
+
+    // 3. Không có kỹ năng → trả về job mới nhất chưa hết hạn
     if (!profile || !profile.skills || profile.skills.length === 0) {
-        const where = { status: 'approved' };
-        if (appliedJobIds.length > 0) where.id = { notIn: appliedJobIds };
-
-        const jobs = await prisma.job.findMany({
-            where,
-            include: {
-                company: { select: { name: true, logoUrl: true, city: true } },
-                skills: { include: { skill: { select: { id: true, name: true } } } }
+        return await Job.findAll({
+            where: {
+                status: 'approved',
+                ...excludeClause,
+                ...deadlineClause
             },
-            orderBy: { createdAt: 'desc' },
-            take: safeLimit
+            include: [
+                { model: Company, as: 'company', attributes: ['name', 'logo_url', 'city'] },
+                { model: Skill, as: 'skills', through: { attributes: [] }, attributes: ['id', 'name'] }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit: safeLimit
         });
 
         return jobs.map(job => ({
@@ -51,21 +66,32 @@ exports.getJobSuggestions = async (userId, limit = 10) => {
 
     const candidateSkillIds = profile.skills.map(s => s.skill.id);
 
-    const where = {
-        status: 'approved',
-        skills: { some: { skillId: { in: candidateSkillIds } } }
-    };
-    if (appliedJobIds.length > 0) where.id = { notIn: appliedJobIds };
-
-    const jobs = await prisma.job.findMany({
-        where,
-        include: {
-            company: { select: { name: true, logoUrl: true, city: true } },
-            skills: { include: { skill: { select: { id: true, name: true } } } }
+    // 4. Tìm job có skill khớp và chưa hết hạn
+    const jobs = await Job.findAll({
+        where: {
+            status: 'approved',
+            ...excludeClause,
+            ...deadlineClause
         },
-        take: safeLimit * 3
+        include: [
+            {
+                model: Company,
+                as: 'company',
+                attributes: ['name', 'logo_url', 'city']
+            },
+            {
+                model: Skill,
+                as: 'skills',
+                through: { attributes: [] },
+                attributes: ['id', 'name'],
+                where: { id: { [Op.in]: candidateSkillIds } },
+                required: true
+            }
+        ],
+        limit: safeLimit * 3
     });
 
+    // 5. Tính điểm match và sắp xếp
     return jobs
         .map(job => {
             const jobSkillIds = job.skills.map(s => s.skill.id);

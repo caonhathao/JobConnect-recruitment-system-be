@@ -10,9 +10,15 @@ exports.searchJobs = async (filters) => {
     const pageNumber = parseInt(page);
     const skip = (pageNumber - 1) * pageSize;
 
-    const where = {
-        status: 'approved'
-    };
+    const conditions = [
+        { status: 'approved' },
+        {
+            [Op.or]: [
+                { deadline: { [Op.gt]: sequelize.fn('NOW') } },
+                { deadline: null }
+            ]
+        }
+    ];
 
     if (keyword) {
         const escapedKey = keyword.trim();
@@ -93,6 +99,6 @@ exports.searchJobs = async (filters) => {
         total_items: count,
         total_pages: Math.ceil(count / pageSize),
         current_page: pageNumber,
-        jobs: transformedJobs
+        jobs: rows.filter(job => !job.deadline || new Date(job.deadline) > new Date())
     };
 };
