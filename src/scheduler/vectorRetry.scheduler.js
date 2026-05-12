@@ -24,67 +24,87 @@ const setupVectorSchedule = () => {
   scheduledTask = cron.schedule("*/30 * * * *", async () => {
     if (isRuning) return;
     isRuning = true;
-    console.log(
-      "[SCHEDULE] Start scanning for faulty or unprocessed vector Jobs...",
-    );
-
     try {
-      // Find Jobs with PENDING or FAILED status
-      const incompleteJobs = await prisma.job.findMany({
-        where: {
-          OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
-        },
-        take: 5,
-      });
+      console.log(
+        "[SCHEDULE] Start scanning for faulty or unprocessed vector Jobs...",
+      );
+
+      try {
+        // Find Jobs with PENDING or FAILED status
+        const incompleteJobs = await prisma.job.findMany({
+          where: {
+            OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
+          },
+          take: 5,
+        });
+
+        console.log(
+          `[SCHEDULE] Found ${incompleteJobs.length} Job that needs reprocessing.`,
+        );
+
+        for (const job of incompleteJobs) {
+          // Re-processing (Do not use await to avoid loop bottleneck if a job fails)
+          processAndStoreJobVector(job)
+            .then(() =>
+              console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`),
+            )
+
+            .catch((err) =>
+              console.error(
+                `[SCHEDULE] Error re-processing Job ${job.id}:`,
+                err,
+              ),
+            );
+        }
+      } catch (error) {
+        console.error(
+          "[SCHEDULE] Fatal error while executing Cron Job:",
+          error,
+        );
+      }
 
       console.log(
-        `[SCHEDULE] Found ${incompleteJobs.length} Job that needs reprocessing.`,
+        "[SCHEDULE] Start scanning for faulty or unprocessed vector Resumes...",
+        // Find Resumes with PENDING or FAILED status
       );
+      try {
+        const incompleteResumes = await prisma.resume.findMany({
+          where: {
+            OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
+          },
+          select: {
+            id: true,
+            userId: true,
+            fileUrl: true,
+          },
+        });
 
-      for (const job of incompleteJobs) {
-        // Re-processing (Do not use await to avoid loop bottleneck if a job fails)
-        processAndStoreJobVector(job)
-          .then(() => console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`))
-
-          .catch((err) =>
-            console.error(`[SCHEDULE] Error re-processing Job ${job.id}:`, err),
-          );
-      }
-    } catch (error) {
-      console.error(
-        "[SCHEDULE] Fatal error while executing Cron Job:",
-
-        error,
-      );
-    }
-
-    console.log(
-      "[SCHEDULE] Start scanning for faulty or unprocessed vector Resumes...",
-      // Find Resumes with PENDING or FAILED status
-    );
-    const incompleteResumes = await prisma.resume.findMany({
-      where: {
-        OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
-      },
-      select: {
-        id: true,
-        userId: true,
-        fileUrl: true,
-      },
-    });
-
-    console.log(
-      `[SCHEDULE] Found ${incompleteResumes.length} Job that needs reprocessing.`,
-    );
-
-    for (const job of incompleteResumes) {
-      // Re-processing (Do not use await to avoid loop bottleneck if a job fails)
-      processAndStoreResumeVector(job, job.userId)
-        .then(() => console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`))
-
-        .catch((err) =>
-          console.error(`[SCHEDULE] Error re-processing Job ${job.id}:`, err),
+        console.log(
+          `[SCHEDULE] Found ${incompleteResumes.length} Job that needs reprocessing.`,
         );
+
+        for (const job of incompleteResumes) {
+          // Re-processing (Do not use await to avoid loop bottleneck if a job fails)
+          processAndStoreResumeVector(job, job.userId)
+            .then(() =>
+              console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`),
+            )
+
+            .catch((err) =>
+              console.error(
+                `[SCHEDULE] Error re-processing Job ${job.id}:`,
+                err,
+              ),
+            );
+        }
+      } catch (error) {
+        console.error(
+          "[SCHEDULE] Fatal error while executing Cron Job:",
+          error,
+        );
+      }
+    } finally {
+      isRuning = false;
     }
   });
 

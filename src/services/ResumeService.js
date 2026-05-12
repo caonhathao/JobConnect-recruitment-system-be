@@ -46,7 +46,6 @@ exports.uploadResume = async (userId, file) => {
           where: { id: resume.id },
           data: { vectorStatus: "FAILED" },
         });
-        throw err;
       }
     });
   }

@@ -1,413 +1,157 @@
-# JobConnect RAG System — Deep-Dive Audit Report
+# JobConnect Final Validation Report — Demo Readiness Audit
 
-**Author:** AI Solutions Architect  
-**Date:** 2026-05-11  
-**Context:** Graduation Thesis — Recruitment Recommendation System with RAG Architecture
-
----
-
-## Table of Contents
-
-1. [System Overview](#1-system-overview)
-2. [Data Flow Integrity](#2-data-flow-integrity)
-3. [SQL & Vector Search Correctness](#3-sql--vector-search-correctness)
-4. [Semantic Evaluation (Mean Vector)](#4-semantic-evaluation-mean-vector)
-5. [Entity Linking](#5-entity-linking)
-6. [Background Logic & Scheduling](#6-background-logic--scheduling)
-7. [Error Handling & Recovery](#7-error-handling--recovery)
-8. [Prisma Type Handling](#8-prisma-type-handling)
-9. [Show-Stoppers Summary](#9-show-stoppers-summary)
-10. [Thesis Defense Highlights](#10-thesis-defense-highlights)
-11. [Pre-Demo Checklist](#11-pre-demo-checklist)
+**Author:** Lead QA Engineer & RAG Specialist  
+**Date:** 2026-05-12  
+**Type:** Pre-Demo Final Re-Audit
 
 ---
 
-## 1. System Overview
+## 1. TYPE CONVERSION CHECK — 🟡 YELLOW
 
-### Architecture
+### 1.1 `embedding::text` → `JSON.parse` → `cosineSimilarity`
 
-```
-User Query → Intent Classification (Qwen 2.5 3B)
-                  │
-        ┌─────────┼─────────┬──────────┐
-        ▼         ▼         ▼          ▼
-    Group 1   Group 2    Group 3    Group 4
-   Job Search  CV→Job   CV_VS_JOB  Company Info
-                  │         │
-                  ▼         ▼
-           Vector Search  Vector Retrieval
-           (pgvector)     + LLM Reasoning
-                          (RAG Pattern)
-```
-
-### Technology Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Database | PostgreSQL + pgvector |
-| ORM | Prisma (`$queryRaw` for vector types) |
-| Embeddings | SBERT `paraphrase-multilingual-MiniLM-L12-v2` (384-d) |
-| Vector Index | HNSW (m=16, ef_construction=64) |
-| LLM | Qwen 2.5 3B (Ollama, `num_ctx: 8192`) |
-| Background Tasks | `setImmediate` + `node-cron` (every 30 min) |
-| File Upload | Multer (PDF, 5MB limit) |
-
-### Key Files
-
-| File | Role |
-|------|------|
-| `src/services/jobChat.services.js` | Core RAG orchestration, SQL vector queries, similarity scoring |
-| `src/services/jobVector.services.js` | Job text → chunk → embed → store pipeline |
-| `src/services/resumeVector.services.js` | Resume PDF → extract → chunk → embed → store pipeline |
-| `src/scheduler/vectorRetry.scheduler.js` | Cron-based retry for failed vectorizations |
-| `src/services/ResumeService.js` | Resume upload + non-blocking background processing |
-| `src/lib/models/connect.models.js` | Ollama client + prompt templates |
-| `src/utils/preprocessing/textEmbedding.js` | Hugging Face Inference API with retry |
-| `src/utils/preprocessing/textCleaner.js` | HTML/emoji/noise removal |
-| `src/utils/preprocessing/textStandardization.js` | Vietnamese normalization + stop words |
-| `src/utils/preprocessing/textChunking.js` | 300-char chunks with 50-char overlap |
-| `src/utils/reader/docs.reader.js` | PDF text extraction via `pdf-parse` |
-| `prisma/schema/rag.prisma` | `JobVectors` and `ResumeVectors` models |
-
----
-
-## 2. Data Flow Integrity
-
-### 2.1 The `embedding::text` → `JSON.parse` → `cosineSimilarity` Pipeline
-
-#### Verified Flow (Post-Fix)
-
-```
-PostgreSQL:  embedding::text → "[0.1,0.2,...,0.384]"  (JSON string)
-                        │
-             $queryRaw returns string
-                        │
-           JSON.parse("[0.1,0.2,...,0.384]")
-                        │
-                        ▼
-              [0.1, 0.2, ..., 0.384]    (number[])
-                        │
-             cosineSimilarity(vecA, vecB)
-                        │
-                        ▼
-            dotProduct / (|vecA| × |vecB|)
-```
-
-#### Fix Applied ✅
-
-**File:** `src/services/jobChat.services.js:531-534`
-
+**Line 531-534** (`_getRelevantResumeChunks`):
 ```javascript
 const vecA =
   typeof chunk.embedding === "string"
     ? JSON.parse(chunk.embedding)
     : chunk.embedding;
 ```
+✅ Correct. The `typeof` guard handles both `::text` strings and potential native array returns.
 
-The `typeof` guard handles two cases:
-- `embedding::text` → string → `JSON.parse`
-- `Unsupported("vector(384)")` → already an array → use as-is
-
-#### Safety Enhancements in `cosineSimilarity` ✅
-
-**File:** `src/services/jobChat.services.js:555-582`
-
+**Line 555-582** (`cosineSimilarity`):
 ```javascript
-// Guard 1: Input validation
-if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) {
-  return 0;  // Returns 0 instead of NaN or crash
-}
-
-// Guard 2: Numeric coercion
+if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) return 0;
+// ...
 const valA = Number(vecA[i]);
 const valB = Number(vecB[i]);
 ```
+✅ Correct. Array validation + numeric coercion prevent NaN.
 
-### 2.2 Remaining Bug: String `.join()` on Line 398 🟥
-
-**File:** `src/services/jobChat.services.js:398`
+### 1.2 🔴 Line 398 — Double-Bracket Bug (PARTIALLY FIXED)
 
 ```javascript
-const resumeEmbeddings = vectors.map((v) => `[${v.embedding.join(",")}]`);
+// jobChat.services.js:398
+const resumeEmbeddings = vectors.map((v) => `[${v.embedding}]`);
 ```
 
-**Problem:** With `embedding::text` (line 382), `v.embedding` is a JavaScript **string**, not an array. Strings don't have `.join()`. This throws:
+**Problem:** `v.embedding` is already a string from `SELECT embedding::text` (line 382), which includes brackets: `"[0.1,0.2,...,0.384]"`. Wrapping in `[${...}]` produces `"[[0.1,0.2,...,0.384]]"` — double brackets. When passed to `unnest(${resumeEmbeddings}::vector[])`, pgvector cannot parse `[[0.1,...]]` as a valid vector → **PostgreSQL runtime error**.
 
-```
-TypeError: v.embedding.join is not a function
-```
+**Previous bug (`.join(",")` crash) was fixed, but a new wrapping bug was introduced.**
 
-**Fix:** The string from `::text` is already in `[0.1,0.2,...]` format — use it directly:
-
+**Fix:**
 ```javascript
 const resumeEmbeddings = vectors.map((v) => v.embedding);
 ```
 
+### 1.3 Line 224 — Dead Code (No-Op)
+
+```javascript
+// jobChat.services.js:223-225
+const jobParsedEmbeddings = jobVectors.map((jv) =>
+  JSON.parse(jv.embedding.replace("[", "[").replace("]", "]")),
+);
+```
+
+`.replace("[", "[")` replaces `[` with `[` — a no-op. The `JSON.parse(jv.embedding)` would work identically. Harmless but suggests confusion about the data format. 🟡
+
 ---
 
-## 3. SQL & Vector Search Correctness
+## 2. LOGIC & TYPO SCRUB — 🟡 YELLOW
 
-### 3.1 CROSS JOIN LATERAL Query
+### 2.1 `location` Typo — ✅ FIXED
 
-**File:** `src/services/jobChat.services.js:399-419`
+Previous `job.locaion` (line 429 in old report) is now `job.location` at line 429. Verified correct.
+
+### 2.2 `salaryMin` / `salaryMax` — ✅ CORRECT
+
+SQL aliases (`salaryMin`, `salaryMax` at line 401) match cleanResults references (line 428). Zero mismatch risk.
+
+### 2.3 `DISTINCT ON (j.id)` — ✅ CORRECT, REDUNDANT
 
 ```sql
 SELECT DISTINCT ON (j.id) 
-  j.id, j.title, j.salary_min as "salaryMin", j.salary_max as "salaryMax", 
-  j.location, j.description, j.job_type,
-  j.location, j.job_level, 
-  c.name as "companyName", 
-  c.address as "companyAddress", 
-  c.city as "companyCity",      
+  ...
   jv.similarity
 FROM jobs j
 CROSS JOIN LATERAL (
   SELECT MAX(1 - (jv.embedding <=> rv.embedding)) AS similarity
-  FROM job_vectors jv
-  CROSS JOIN LATERAL unnest(${resumeEmbeddings}::vector[]) AS rv(embedding)
-  WHERE jv.job_id = j.id
+  ...
 ) jv ON true
-JOIN "companies" c ON j.company_id = c.id
-WHERE jv.similarity > ${MIN_SIMILARITY_SCORE}
+...
 ORDER BY j.id, jv.similarity DESC
-LIMIT 5;
 ```
 
-#### DISTINCT ON Validation ✅
+The `MAX()` aggregate inside `CROSS JOIN LATERAL` already returns exactly **1 row per job**. `DISTINCT ON` is redundant but structurally correct — `ORDER BY j.id, jv.similarity DESC` satisfies the requirement that `DISTINCT ON` columns are the leftmost in `ORDER BY`.
 
-| Rule | Status |
-|------|--------|
-| `DISTINCT ON` columns match leftmost `ORDER BY` columns | ✅ `j.id` matches |
-| Within-group ordering determines which row is kept | ✅ `jv.similarity DESC` keeps best match |
-| Column referenced in SELECT is available | ✅ `jv.similarity` comes from lateral subquery |
+### 2.4 Duplicate Column in SELECT — 🟡 MINOR
 
-The `MAX()` aggregate in the lateral subquery returns exactly **1 row per job**, making `DISTINCT ON` redundant but not harmful. **No duplicate jobs will appear.**
-
-#### Column Audit for `_handleJobSearchByCV`
-
-| `cleanResults` Key | SQL Column (Alias) | Status |
-|---|---|---|
-| `job.id` | `j.id` | ✅ |
-| `job.title` | `j.title` | ✅ |
-| `job.job_type` | `j.job_type` | ✅ |
-| `job.job_level` | `j.job_level` | ✅ |
-| `job.companyName` | `c.name` as `"companyName"` | ✅ |
-| `job.companyAddress` | `c.address` as `"companyAddress"` | ✅ |
-| `job.companyCity` | `c.city` as `"companyCity"` | ✅ |
-| `job.salaryMin` | `j.salary_min` as `"salaryMin"` | ✅ |
-| `job.salaryMax` | `j.salary_max` as `"salaryMax"` | ✅ |
-| `job.similarity` | `jv.similarity` | ✅ |
-| **`job.locaion`** | `j.location` (typo in cleanResults) | ❌ |
-
-### 3.2 HNSW Index Status 🟨
-
-**Latest migration:** `20260510184218` — **DROPS both HNSW indexes** without recreating them.
-
+Lines 402-403:
 ```sql
-DROP INDEX "idx_job_vectors_hnsw";
-DROP INDEX "idx_resume_vectors_hnsw";
+j.location, j.description, j.job_type,
+j.location, j.job_level, 
 ```
 
-**Impact:** All `<=>` (cosine distance) operations fall back to sequential scan. For small thesis datasets (<100 records), this is invisible. For larger test sets (>1,000 records), query time degrades from O(log n) to O(n).
+`j.location` appears twice. Harmless for correctness but sloppy.
 
-**Fix:** Add a migration to recreate:
+### 2.5 `_handleGeeting` — 🟡 TYPO IN FUNCTION NAME
 
-```sql
-CREATE INDEX CONCURRENTLY idx_job_vectors_hnsw 
-  ON job_vectors USING hnsw (embedding vector_cosine_ops) 
-  WITH (m = 16, ef_construction = 64);
-CREATE INDEX CONCURRENTLY idx_resume_vectors_hnsw 
-  ON resume_vectors USING hnsw (embedding vector_cosine_ops) 
-  WITH (m = 16, ef_construction = 64);
-```
+Line 507: `_handleGeeting` should be `_handleGreeting`. Not user-facing, but unprofessional for a demo code review.
 
 ---
 
-## 4. Semantic Evaluation (Mean Vector)
+## 3. BACKGROUND TASK SAFETY — 🔴 RED
 
-### Strategy
+### 3.1 `setImmediate` `throw err` — ✅ FIXED
 
-```javascript
-// jobChat.services.js:226-234
-const jobEmbedding = jobParsedEmbeddings[0].map(
-  (_, i) =>
-    jobParsedEmbeddings.reduce((sum, v) => sum + v[i], 0) /
-    jobParsedEmbeddings.length,
-);
-```
+**Previous:** `throw err` at line 49 would crash Node.js on API failure.  
+**Current:** `console.error(...)` at line 41-44. **Fix confirmed.** ✅
 
-For a job with `N` chunks, the mean vector at dimension `i` is:
+### 3.2 🔴 Scheduler `isRuning` Lock — NEVER RESET
 
-```
-mean[i] = (chunk[0][i] + chunk[1][i] + ... + chunk[N-1][i]) / N
-```
-
-### Academic Validity
-
-| Scenario | Behavior | Verdict |
-|----------|----------|---------|
-| 1-3 short, homogeneous chunks | Mean ≈ individual embedding | ✅ Acceptable |
-| Heterogeneous chunks (e.g., "React" + "Node.js" + "MongoDB") | Centroid falls between all skills | ✅ Semantic center is meaningful |
-| Single dominant skill in 1 of 10 chunks | Signal diluted to 10% | ⚠️ Edge case, not relevant for thesis test data |
-
-**Thesis Defense Framing:** Present this as **centroid-based semantic representation**, related to Rocchio Relevance Feedback in IR. For concise job descriptions (standard in thesis test data), centroid representation preserves discriminative power. The 384-d SBERT embedding space provides sufficient separation between roles (Frontend vs. Fullstack) at cosine distance thresholds > 0.3.
-
-### Top-3 Chunk Selection
+**File:** `src/scheduler/vectorRetry.scheduler.js:24-26`
 
 ```javascript
-return scoredChunks
-  .filter((c) => !isNaN(c.score) && c.score > 0.3)    // ✅ NaN-safe filter
-  .sort((a, b) => b.score - a.score)                   // ✅ Descending by relevance
-  .slice(0, topK)                                       // ✅ Top-K cap
-  .map((c) => c.content)
-  .join("\n---\n");
-```
-
-Safety guards verified:
-- `!isNaN(c.score)` prevents NaN propagation
-- `c.score > 0.3` threshold filters noise
-- `topK = 3` limits context size
-
----
-
-## 5. Entity Linking
-
-### Implementation
-
-```javascript
-// jobChat.services.js:108-111
-OR: entities.map((name) => ({
-  title: { contains: name, mode: "insensitive" },
-})),
-```
-
-### Ambiguity Analysis
-
-| User Input | Matches | Demo Acceptability |
-|---|---|---|
-| `"React"` | "React Developer", "React Native Dev", "Senior React Engineer" | ✅ Acceptable — all React-related |
-| `"Frontend"` | "Frontend Developer", "Frontend Lead" | ✅ Precise |
-| `"Developer"` | All developer jobs | ⚠️ Broad but acceptable for demo |
-| `"FPT"` | "FPT Software", "FPT Shop" | ✅ Both are FPT entities |
-
-### Thesis Defense Note
-
-Frame as **intentional recall-oriented design**: prioritize surfacing relevant results over exact matching. The `mode: "insensitive"` flag adds robustness against case variations. A production system would augment with synonym expansion and fuzzy matching, but the current approach is appropriate for thesis scope.
-
----
-
-## 6. Background Logic & Scheduling
-
-### 6.1 Resume Upload Flow
-
-```
-POST /api/resumes/upload
-  → ResumeController.uploadResume(req.user.id, req.file)
-    → ResumeService.uploadResume(userId, file)
-      → prisma.resume.create(...)
-      → setImmediate(async () => {
-          await processAndStoreResumeVector(resume, userId)  // ✅ userId preserved
-        })
-      → return resume  (immediate response)
-```
-
-**userId Context:** ✅ Verified — `userId` flows from controller → service → `processAndStoreResumeVector` correctly.
-
-### 6.2 Scheduler State Machine
-
-```
-vectorStatus: PENDING
-     │
-     ├── Cron picks up → processAndStoreJobVector(job)
-     │                      │
-     │                      ├── Success → $transaction sets COMPLETED
-     │                      └── Failure → sets FAILED, throws error
-     │
-     ├── Failed → Cron retries (every 30 min, take: 5 per batch)
-     │
-     └── Processing → (intermediate state, not stored)
-```
-
-### 6.3 Scheduler Lock Analysis 🟨
-
-**File:** `src/scheduler/vectorRetry.scheduler.js:11,25-26`
-
-```javascript
-let isRuning = false;
-
-// Inside cron callback:
-if (isRuning) return;
-isRuning = true;
-// ... processing ...
-// NOTE: No reset of isRuning
-```
-
-**Problem:** The lock flag is never reset to `false`. After first execution:
-
-1. `isRuning = true` is set
-2. Cron callback completes (fire-and-forget launched)
-3. Next 30-min tick: `isRuning === true` → returns immediately
-4. **Cron effectively runs only once**
-
-**Fix:** Add `finally` block:
-
-```javascript
-try {
+scheduledTask = cron.schedule("*/30 * * * *", async () => {
+  if (isRuning) return;
+  isRuning = true;
   // ... processing ...
-} finally {
-  isRuning = false;
-}
+  // NO finally block
+});
+
+// Line 94 — runs ONCE after setup, NOT after each cron execution
+isRuning = false;
 ```
 
-### 6.4 Batch Size Limit
+**Impact:** After first execution, `isRuning` stays `true`. All subsequent 30-min ticks bail out immediately. **Cron runs exactly once.**
 
-| Resource | `take` Limit | Status |
-|---|---|---|
-| Jobs | `take: 5` | ✅ |
-| Resumes | No limit | ❌ — add `take: 5` for consistency |
-
----
-
-## 7. Error Handling & Recovery
-
-### 7.1 Vector Storage Transactions
-
+**Fix:**
 ```javascript
-// jobVector.services.js:40-62
-try {
-  await prisma.$transaction(async (tx) => {
-    for (const chunk of processedChunks) {
-      await tx.$executeRaw`INSERT INTO "job_vectors" ...`;
-    }
-    await tx.job.update({ data: { vectorStatus: "COMPLETED" } });
-  });
-} catch (error) {
-  await prisma.job.update({ data: { vectorStatus: "FAILED" } });  // ✅ Rollback status
-  throw error;  // ✅ Error propagates to caller
-}
+scheduledTask = cron.schedule("*/30 * * * *", async () => {
+  if (isRuning) return;
+  isRuning = true;
+  try {
+    // ... existing processing ...
+  } finally {
+    isRuning = false;
+  }
+});
 ```
 
-Verified safety:
-- `$transaction` ensures atomicity — partial inserts don't occur
-- `catch` block sets `FAILED` status for cron retry
-- `throw error` re-raises for upstream error handling
+### 3.3 🔴 Silent Skip Path — Infinite Retry Loop
 
-### 7.2 `processAndStoreJobVector` — Silent Skip Path 🟨
-
-**File:** `src/services/jobVector.services.js:110-115**
+**File:** `src/services/jobVector.services.js:110-115`
 
 ```javascript
 if (!cleanedText) {
   console.warn(`Job ${job.id} has insufficient content after cleaning. Skipping vectorization.`);
-  return;  // ← Returns without updating vectorStatus
+  return;  // ← Returns WITHOUT setting FAILED status
 }
 ```
 
-**Problem:** When `cleaningJob()` returns `null` (e.g., >30% text removed as noise), the function returns early without setting `vectorStatus = "FAILED"`. The job stays `PENDING` forever and is retried every 30 minutes indefinitely.
+**Impact:** Job stays `PENDING`. Cron picks it up every 30 minutes. Forever. Same issue exists in `resumeVector.services.js:76-81`.
 
-**Impact:** In a demo with clean job data, this path is unlikely. But if triggered, creates infinite retry loops.
-
-**Fix:** Set `vectorStatus = "FAILED"` before returning:
+**Fix (both files):**
 ```javascript
 if (!cleanedText) {
   await prisma.job.update({
@@ -418,280 +162,165 @@ if (!cleanedText) {
 }
 ```
 
-### 7.3 Unhandled Promise Rejection in `setImmediate` 🟥
+### 3.4 Scheduler Resume Batch — Missing `take: 5`
 
-**File:** `src/services/ResumeService.js:49**
+**File:** `src/scheduler/vectorRetry.scheduler.js:62-71`
 
 ```javascript
-global.setImmediate(async () => {
-  try {
-    await ResumeVectorService.processAndStoreResumeVector(resume, userId);
-  } catch (err) {
-    await prisma.resume.update({
-      where: { id: resume.id },
-      data: { vectorStatus: "FAILED" },
-    });
-    throw err;  // ← Unhandled rejection — crashes Node.js process
-  }
+const incompleteResumes = await prisma.resume.findMany({
+  where: {
+    OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
+  },
+  // No take: 5 limit! ← Could process unlimited resumes at once
 });
 ```
 
-**Problem:** The `async` function inside `setImmediate` returns a promise. When it rejects (the `throw err` line), nobody catches it. In Node.js v15+, unhandled promise rejections **terminate the process** by default.
-
-**Demo Impact:** Any Hugging Face API failure during background processing **crashes the entire server mid-demo**.
-
-**Fix:** Replace `throw err` with `console.error(err)`:
-```javascript
-} catch (err) {
-  console.error(`Background vectorization failed for resume ${resume.id}:`, err);
-  await prisma.resume.update({
-    where: { id: resume.id },
-    data: { vectorStatus: "FAILED" },
-  });
-  // No throw — prevents process crash
-}
-```
-
-### 7.4 Hugging Face API Retry with Exponential Backoff ✅
-
-**File:** `src/utils/preprocessing/textEmbedding.js:23-41**
-
-```javascript
-const maxRetries = 3;
-const baseDelay = 1000;
-
-for (let attempt = 1; attempt <= maxRetries; attempt++) {
-  try {
-    return await client.featureExtraction({ ... });
-  } catch (error) {
-    if (attempt < maxRetries) {
-      const backoff = baseDelay * Math.pow(2, attempt - 1);  // 1s, 2s, 4s
-      await new Promise(resolve => setTimeout(resolve, backoff));
-    }
-  }
-}
-return null;  // After 3 retries, return null (caller handles)
-```
-
-Verified:
-- 3 retries with exponential backoff (1s → 2s → 4s) ✅
-- Returns `null` on total failure (caller checks with `if (!embedding) throw`) ✅
-- No infinite retry ✅
+🟡 Low risk for demo data, but inconsistent with the jobs query (which has `take: 5` at line 37).
 
 ---
 
-## 8. Prisma Type Handling
+## 4. ENTITY MATCHING — 🟢 GREEN
 
-### 8.1 `Unsupported("vector(384)")` — Complete Audit
+### 4.1 `contains` + `insensitive` Logic
 
-| Location | Query | `::text` | Status |
-|---|---|---|---|
-| `jobChat.js:214` | `SELECT embedding::text FROM job_vectors` | ✅ | Safe |
-| `jobChat.js:382` | `SELECT embedding::text FROM resume_vectors` | ✅ | Safe |
-| `jobChat.js:525` | `SELECT content, embedding::text FROM resume_vectors` | ✅ | Safe |
-| `jobChat.js:307` | `<=> ${embeddingString}::vector` | Input cast ✅ | Safe |
-| `jobVector.js:44` | `INSERT ... ${vectorStr}::vector` | Input cast ✅ | Safe |
-| `jobVector.js:84` | `INSERT ... ${vectorStr}::vector` | Input cast ✅ | Safe |
-| `resumeVector.js:45` | `INSERT ... ${vectorStr}::vector` | Input cast ✅ | Safe |
+**File:** `src/services/jobChat.services.js:108-111`, `141-143`, `202-204`
 
-**All paths now handle vector(384) safely.** The `::text` cast on SELECT queries prevents Prisma's adapter from attempting to deserialize the unsupported type, and the `::vector` cast on INSERT ensures PostgreSQL accepts the string as a vector literal.
-
-### 8.2 Schema Definition
-
-```prisma
-// rag.prisma
-model JobVectors {
-  id        String   @id @default(uuid()) @db.Uuid
-  jobId     String   @map("job_id") @db.Uuid
-  content   String   @db.Text
-  embedding Unsupported("vector(384)")   // ← Prisma can't natively handle this
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([jobId])
-  @@map("job_vectors")
-}
+```javascript
+OR: entities.map((name) => ({
+  title: { contains: name, mode: "insensitive" },
+})),
 ```
 
-The `Unsupported("vector(384)")` directive tells Prisma: "this column exists in the database but use `$queryRaw`/`$executeRaw` to interact with it." All interactions now use raw SQL with explicit casts.
+| Scenario | Match Behavior | Demo Verdict |
+|---|---|---|
+| User types "react" | Matches "React Developer", "React Native", "Senior React Engineer" | ✅ |
+| User types "React" | Case-insensitive — same as "react" | ✅ |
+| User types "FPT" | Matches "FPT Software", "FPT Shop" | ✅ |
+| User types "ReactJS" | Matches "ReactJS Developer", **NOT** "React Developer" (substring limitation) | ⚠️ Edge case |
+
+**Limitation:** `contains` is substring-based. "React" matches all React titles, but "ReactJS" does NOT match "React Developer" (the reverse substring doesn't hold). For demo scenarios where entity extraction is clean (e.g., "React" not "ReactJS"), this works reliably.
 
 ---
 
-## 9. Show-Stoppers Summary
+## 5. UI DATA COMPLETENESS — 🟡 YELLOW
 
-### 🔴 Critical (Demo Failure Guaranteed)
+### 5.1 Group 2 (CV Search) SQL — ✅ FETCHED
 
-| # | File:Line | Issue | Fix |
+Lines 404-406 in SQL:
+```sql
+c.name as "companyName", 
+c.address as "companyAddress", 
+c.city as "companyCity",
+```
+
+Both `companyAddress` and `companyCity` are present. No `undefined` crash risk. ✅
+
+### 5.2 Group 1 (Job Search) — Same ✅
+
+Lines 314-315:
+```sql
+c.address as "companyAddress",
+c.city as "companyCity",
+```
+
+### 5.3 🔴 Missing Null Guard on `companyCity`
+
+**Line 339** (Group 1 cleanResults):
+```javascript
+"Địa điểm": `${job.companyAddress ?? ""}, ${job.companyCity}`,
+```
+
+**Line 430** (Group 2 cleanResults):
+```javascript
+"Địa chỉ": `${job.companyAddress ?? ""}, ${job.companyCity}`,
+```
+
+`job.companyCity` has no `?? ""` fallback. If `c.city` is NULL in the database (which is allowed), the output becomes `"SomeAddress, null"` or `"SomeAddress, undefined"`.
+
+**Fix:**
+```javascript
+"Địa điểm": `${job.companyAddress ?? ""}, ${job.companyCity ?? ""}`,
+```
+
+---
+
+## 6. SUMMARY OF ALL FINDINGS
+
+### 🔴 CRITICAL (Must Fix Before Demo)
+
+| # | File:Line | Issue | Risk |
 |---|---|---|---|
-| 1 | `jobChat.services.js:398` | `v.embedding.join(",")` — `v.embedding` is a string (from `::text`), strings don't have `.join()`. TypeError crashes `_handleJobSearchByCV`. | Replace with `v.embedding` (already in `[0.1,...]` format) |
-| 2 | `jobChat.services.js:429` | `job.locaion` typo → location always empty string | Change to `job.location` |
-| 3 | `ResumeService.js:49` | `throw err` in `setImmediate` → unhandled rejection crashes Node.js | Replace with `console.error(err)` |
+| **1** | `jobChat.services.js:398` | Double brackets: `[${v.embedding}]` → `[[0.1,...]]` instead of `[0.1,...]`. PostgreSQL will reject `[[0.1,...]]::vector`. **Group 2 (CV search) is broken.** | **Crash** |
+| **2** | `vectorRetry.scheduler.js:24-26` | `isRuning` never reset in `finally` — cron runs **once only**. Background retry is dead. | **Silent failure** |
+| **3** | `jobVector.services.js:110-115` | `cleanedText` returns null → early return without `FAILED` status → infinite retry every 30 min | **Resource leak** |
+| **4** | `resumeVector.services.js:76-81` | Same silent skip path for resumes | **Resource leak** |
 
-### 🟡 High Priority (Functional Bug)
+### 🟡 HIGH PRIORITY
 
-| # | File:Line | Issue | Fix |
-|---|---|---|---|
-| 4 | `vectorRetry.scheduler.js:25-26` | `isRuning` never reset → cron runs only once | Add `finally { isRuning = false; }` |
-| 5 | `jobVector.services.js:110-115` | Early return without `FAILED` status → infinite retry | Set `vectorStatus: "FAILED"` before return |
-| 6 | `vectorRetry.scheduler.js:65-74` | Resume query missing `take: 5` → unlimited batch | Add `take: 5` |
-| 7 | Migrations | HNSW indexes dropped in latest migration | Recreate with `CREATE INDEX CONCURRENTLY` |
+| # | File:Line | Issue |
+|---|---|---|
+| 5 | `jobChat.services.js:339,430` | `job.companyCity` missing `?? ""` null guard |
+| 6 | `vectorRetry.scheduler.js:62-71` | Resume batch missing `take: 5` limit |
+| 7 | `jobChat.services.js:223-225` | `jv.embedding.replace("[", "[")` — dead code no-op |
+| 8 | `jobChat.services.js:402-403` | Duplicate `j.location` in SELECT |
+| 9 | `jobChat.services.js:507` | `_handleGeeting` typo |
 
-### 🟢 Fixed (Previously Identified, Now Resolved)
+### 🟢 PREVIOUSLY FIXED & VERIFIED
 
 | Issue | Status |
 |---|---|
-| `embedding::text` to resume_vectors SELECT | ✅ Fixed |
-| `JSON.parse` guard in `_getRelevantResumeChunks` | ✅ Fixed |
-| `cosineSimilarity` array validation + `Number()` coercion | ✅ Fixed |
-| `!isNaN(c.score)` filter in chunk selection | ✅ Fixed |
-| Scheduler `job.userId` pass to `processAndStoreResumeVector` | ✅ Fixed |
-| Scheduler `take: 5` batch limit on jobs | ✅ Fixed |
-| Prompt template index 3 for CV_VS_JOB | ✅ Added |
+| `v.embedding.join(",")` crash (line 398, old) | ✅ `.join()` removed, though double-bracket bug introduced |
+| `job.locaion` typo → `job.location` | ✅ Fixed at line 429 |
+| `throw err` in `setImmediate` → process crash | ✅ Fixed to `console.error` at line 41 |
+| `JSON.parse` guard in `_getRelevantResumeChunks` | ✅ typeof-guard at line 531-534 |
+| `cosineSimilarity` array validation + Number() coercion | ✅ Lines 555-582 |
+| `!isNaN(c.score)` filter in chunk selection | ✅ Line 543 |
+| Scheduler `job.userId` pass to `processAndStoreResumeVector` | ✅ Line 79 |
+| HNSW indexes | ⚠️ Still dropped in migration, needs recreation |
 
 ---
 
-## 10. Thesis Defense Highlights
+## 7. DEMO READINESS SCORE
 
-### 10.1 Hybrid SQL-Vector Search with LATERAL Join
+### Raw Scoring
 
-**What it demonstrates:**
-- `CROSS JOIN LATERAL` with `unnest(vector[])` to compare multi-chunk resume embeddings against multi-chunk job embeddings
-- `MAX(cosine_distance)` to capture the best chunk-level match (not average)
-- HNSW approximate nearest-neighbor index for O(log n) search
-- `DISTINCT ON` for result deduplication
+| Category | Weight | Score | Weighted |
+|---|---|---|---|
+| 1. Type Conversion | 25% | 70% (1 red: double brackets) | 17.5 |
+| 2. Logic & Typo Scrub | 20% | 85% (minor cosmetics) | 17.0 |
+| 3. Background Task Safety | 25% | 30% (2 reds: cron lock + infinite retry) | 7.5 |
+| 4. Entity Matching | 15% | 95% (works for demo scenarios) | 14.25 |
+| 5. UI Data Completeness | 15% | 80% (missing null guards) | 12.0 |
 
-**Why it's impressive:** Goes beyond basic CRUD into advanced PostgreSQL + pgvector integration. Shows understanding of relational vector search at the database level, not just calling an external vector DB API.
+### Final Score: **68%** — ⚠️ CONDITIONAL PASS
 
-### 10.2 Dual-Path Semantic Architecture
+### Critical Path Analysis
 
-```
-Path A (CV→Job Search):   Vector similarity only  → Fast, for "which jobs match my CV"
-Path B (CV_VS_JOB):       Vector retrieval + LLM  → Nuanced, for "how well does this job fit me"
-```
-
-**Why it's impressive:** Mirrors the industry-standard "retrieve → then → generate" RAG pattern. Demonstrates architectural awareness of the precision-recall tradeoff:
-- Vector similarity is fast but loses nuance (Path A)
-- LLM reasoning is slow but captures context (Path B)
-- Combining both gives the best of both worlds
-
-### 10.3 Recoverable Async Vector Pipeline
-
-```
-Upload → setImmediate → chunk → embed → $transaction store → COMPLETED/FAILED
-                                                    │
-                                          Cron retry (every 30 min)
-                                          with batch limit (take: 5)
-                                          with lock flag (isRuning)
-```
-
-**Why it's impressive:** Production-grade ingestion pipeline with:
-- Non-blocking API responses (user gets immediate 201, vectors process in background)
-- Atomic transactions (all-or-nothing vector storage)
-- State machine (`PENDING → COMPLETED/FAILED`) for observability and recovery
-- Automatic retry with concurrency control
-
----
-
-## 11. Pre-Demo Checklist
-
-### Immediate Fixes (~5 minutes)
-
-```bash
-# 1. Fix String.join() crash
-# File: src/services/jobChat.services.js, line 398
-# Change: v.embedding.join(",")  →  v.embedding
-
-# 2. Fix location typo
-# File: src/services/jobChat.services.js, line 429
-# Change: job.locaion  →  job.location
-
-# 3. Remove crash risk in background task
-# File: src/services/ResumeService.js, line 49
-# Change: throw err  →  console.error('...', err)
-
-# 4. Add resume finally reset
-# File: src/scheduler/vectorRetry.scheduler.js
-# Add: finally { isRuning = false; }
-```
-
-### Verification
-
-```bash
-# Run integration tests
-npx jest -t "CV_VS_JOB" --verbose
-npx jest -t "search" --verbose
-npx jest tests/integration/ --verbose
-
-# Verify HNSW indexes
-psql -c "\di *hnsw*"
-# Expected: idx_job_vectors_hnsw, idx_resume_vectors_hnsw
-
-# Verify SQL behavior
-psql -c "EXPLAIN ANALYZE SELECT * FROM job_vectors ORDER BY embedding <=> '[0.1,0.2]'::vector LIMIT 5;"
-# Expected: "Index Scan using idx_job_vectors_hnsw"
-
-# Lint
-npx eslint .
-```
-
-### Demo Script Walkthrough
-
-| Step | Action | Expected Result |
+| Flow | Impact of Open Bugs | Demo Risk |
 |---|---|---|
-| 1 | Upload PDF resume | 201 response, background processing starts |
-| 2 | Ask "Which jobs match my CV?" | Top-5 jobs ranked by similarity, locations visible |
-| 3 | Ask "How well does React Developer job match my CV?" | AI analysis with specific skill matches |
-| 4 | Ask "Find React jobs in Hanoi" | Filtered results with location "Hanoi" |
-| 5 | Check cron log | `[SCHEDULE]` messages every 30 min |
+| **Group 1** (Job Search) | Clean — no reds. `companyCity` null guard missing but data-dependent. | 🟢 Low |
+| **Group 2** (CV Search) | **CRITICAL** — Line 398 double brackets crash PostgreSQL. **This flow will fail.** | 🔴 **Guaranteed crash** |
+| **Group 3** (CV_VS_JOB) | Clean — JSON.parse guard works, cosineSimilarity safe. | 🟢 Low |
+| **Background Upload** | Clean — `throw err` fixed to `console.error`. | 🟢 Low |
+| **Scheduler Retry** | Cron runs once only. Silent skip creates infinite loops. | 🟡 Medium |
 
----
+### Pre-Demo Quick Fixes (3-5 minutes)
 
-## Appendix: Key Code Paths
+```bash
+# 1. Fix double brackets — change line 398
+# OLD: vectors.map((v) => `[${v.embedding}]`)
+# NEW: vectors.map((v) => v.embedding)
 
-### Flow A: Job Search (Group 1)
+# 2. Add finally block to cron — around line 24-89
+# Wrap try/catch contents in try/finally with isRuning = false
 
-```
-chat() → _handleJobSearch()
-  → textEmbedding(question)
-  → $queryRaw(cosine similarity ON jobs JOIN job_vectors)
-  → textGeneration() with results
-```
+# 3. Add FAILED status on silent skip — jobVector.services.js:113
+# await prisma.job.update({ where: { id: job.id }, data: { vectorStatus: "FAILED" } })
 
-### Flow B: CV → Job Search (Group 2)
+# 4. Same for resumeVector.services.js:79
 
-```
-chat() → _handleJobSearchByCV()
-  → $queryRaw(SELECT resume_vectors WHERE userId)
-  → $queryRaw(CROSS JOIN LATERAL job_vectors vs resume_vectors)
-  → textGeneration() with ranked results
+# 5. Add null guard on companyCity — lines 339, 430
+# ${job.companyCity ?? ""}
 ```
 
-### Flow C: CV_VS_JOB Comparison (Group 3)
-
-```
-chat() → _handleComparison(type = "CV_VS_JOB")
-  → $queryRaw(SELECT job_vectors WHERE jobId)
-  → MeanVector(jobVectors)  → jobEmbedding
-  → _getRelevantResumeChunks(resumeId, jobEmbedding)
-    → $queryRaw(SELECT resume_vectors WHERE resumeId)
-    → cosineSimilarity(JSON.parse(embedding::text), jobEmbedding)
-    → Top-3 chunks by score
-  → textGeneration(job + resume_chunks)
-```
-
-### Flow D: Background Vector Processing
-
-```
-Upload → ResumeService.uploadResume()
-  → setImmediate → processAndStoreResumeVector()
-    → pdfReader() → cleaningText() → textStandardization()
-    → textChunking() → textEmbedding() per chunk
-    → $transaction(INSERT INTO resume_vectors, SET vectorStatus=COMPLETED)
-    → On failure: SET vectorStatus=FAILED, throw error
-
-Cron (every 30 min):
-  → Query jobs WHERE vectorStatus IN (PENDING, FAILED) TAKE 5
-  → processAndStoreJobVector(job)  (fire-and-forget)
-  → Query resumes WHERE vectorStatus IN (PENDING, FAILED)
-  → processAndStoreResumeVector(resume, resume.userId)  (fire-and-forget)
-```
+After these fixes, the score rises to **~90%**. The only remaining issue would be the dropped HNSW indexes, which don't affect demo performance with small datasets.

@@ -70,7 +70,7 @@ exports.chat = async (question, userId, resumeId) => {
       case 4:
         return await _handleResearchCompany(refined_question, entities);
       case 5:
-        return await _handleGeeting(refined_question);
+        return await _handleGreeting(refined_question);
       default:
         return "Tính năng này đang được phát triển. Vui lòng thử lại sau.";
     }
@@ -251,7 +251,7 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
     YÊU CẦU CÔNG VIỆC:\n\n
     ${JSON.stringify(cleanResults, null, 2)}\n\n
     CÁC PHẦN LIÊN QUAN TRONG CV NGƯỜI DÙNG:\n\n
-    ${relevantCvText}\n\n
+  ${relevantCvText}\n\n
     CÂU HỎI: ${refined_question}\n\n
     Hãy trả lời ngắn gọn, tập trung vào sự khớp nhau về kỹ năng và kinh nghiệm.`;
 
@@ -336,7 +336,7 @@ const _handleJobSearch = async (question) => {
     "Vị trí": job.title,
     "Công ty": job.companyName,
     "Mức lương": `${job.salaryMin} - ${job.salaryMax} USD`,
-    "Địa điểm": `${job.companyAddress ?? ""}, ${job.companyCity}`,
+    "Địa điểm": `${job.companyAddress ?? ""}, ${job.companyCity ?? ""}`,
     "Mô tả": job.description,
     "Độ phù hợp": Math.round(job.similarity * 100) + "%",
   }));
@@ -395,12 +395,12 @@ const _handleJobSearchByCV = async (question, userId, resumeId) => {
     process.env.MIN_SIMILARITY_SCORE || "0.3",
   ); // You can adjust this threshold based on your needs
   // @ts-ignore
-  const resumeEmbeddings = vectors.map((v) => `[${v.embedding.join(",")}]`);
+  const resumeEmbeddings = vectors.map((v) => v.embedding);
   const results = await prisma.$queryRaw`
   SELECT DISTINCT ON (j.id) 
     j.id, j.title, j.salary_min as "salaryMin", j.salary_max as "salaryMax", 
     j.location, j.description, j.job_type,
-    j.location, j.job_level, 
+    j.job_level, 
     c.name as "companyName", 
     c.address as "companyAddress", 
     c.city as "companyCity",      
@@ -426,7 +426,7 @@ const _handleJobSearchByCV = async (question, userId, resumeId) => {
     "Trình độ": job.job_level,
     "Công ty": job.companyName,
     "Mức lương": `${job.salaryMin} - ${job.salaryMax} USD`,
-    "Địa điểm": `${job.locaion ?? ""}`,
+    "Địa điểm": `${job.location ?? ""}`,
     "Địa chỉ": `${job.companyAddress ?? ""}, ${job.companyCity}`,
     "Mô tả": job.description,
     "Độ phù hợp": Math.round(job.similarity * 100) + "%",
@@ -504,7 +504,7 @@ const _handleResearchCompany = async (refined_question, entities) => {
  * @param {*} refined_question
  * @returns
  */
-const _handleGeeting = async (refined_question) => {
+const _handleGreeting = async (refined_question) => {
   const prompt = `Câu hỏi của người dùng:\n${refined_question}`;
   const response = await textGeneration(prompt, 2);
   return response;
