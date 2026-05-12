@@ -220,17 +220,17 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
       return "Không tìm thấy dữ liệu vector cho công việc này.";
     }
     // @ts-ignore
-    const parsedEmbeddings = jobVectors.map((jv) =>
+    const jobParsedEmbeddings = jobVectors.map((jv) =>
       JSON.parse(jv.embedding.replace("[", "[").replace("]", "]")),
     );
 
     // @ts-ignore
-    const jobEmbedding = parsedEmbeddings[0].map(
+    const jobEmbedding = jobParsedEmbeddings[0].map(
       // @ts-ignore
       (_, i) =>
         // @ts-ignore
-        parsedEmbeddings.reduce((sum, v) => sum + v[i], 0) /
-        parsedEmbeddings.length,
+        jobParsedEmbeddings.reduce((sum, v) => sum + v[i], 0) /
+        jobParsedEmbeddings.length,
     );
 
     // Gọi hàm lấy chunk CV liên quan
@@ -247,18 +247,15 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
     };
 
     // 4. Tạo Prompt an toàn về Token
-    const prompt = `Bạn là chuyên gia tuyển dụng. Hãy đánh giá sự phù hợp giữa CV và Job sau:
-    
-    YÊU CẦU CÔNG VIỆC:
-    ${JSON.stringify(cleanResults, null, 2)}
-
-    CÁC PHẦN LIÊN QUAN TRONG CV NGƯỜI DÙNG:
-    ${relevantCvText}
-
-    CÂU HỎI: ${refined_question}
+    const prompt = `
+    YÊU CẦU CÔNG VIỆC:\n\n
+    ${JSON.stringify(cleanResults, null, 2)}\n\n
+    CÁC PHẦN LIÊN QUAN TRONG CV NGƯỜI DÙNG:\n\n
+    ${relevantCvText}\n\n
+    CÂU HỎI: ${refined_question}\n\n
     Hãy trả lời ngắn gọn, tập trung vào sự khớp nhau về kỹ năng và kinh nghiệm.`;
 
-    const response = await textGeneration(prompt, 0);
+    const response = await textGeneration(prompt, 3);
     return response;
   }
   return "Có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại sau.";
@@ -382,7 +379,7 @@ const _handleJobSearchByCV = async (question, userId, resumeId) => {
   }
 
   const vectors = await prisma.$queryRaw`
-    SELECT embedding
+    SELECT embedding::text
     FROM "resume_vectors"
     WHERE user_id = ${userId} AND resume_id = ${resumeId}
   `;
@@ -530,23 +527,24 @@ async function _getRelevantResumeChunks(resumeId, jobEmbedding, topK = 3) {
   if (resumeVectors.length === 0) return "";
 
   // @ts-ignore
-  const scoredChunks = resumeVectors.map((chunk) => ({
-    content: chunk.content,
-    score: cosineSimilarity(chunk.embedding, jobEmbedding),
-  }));
+  const scoredChunks = resumeVectors.map((chunk) => {
+    const vecA =
+      typeof chunk.embedding === "string"
+        ? JSON.parse(chunk.embedding)
+        : chunk.embedding;
 
-  // Lọc lấy những đoạn thực sự có liên quan (score > 0.3) để tránh nhiễu
-  return (
-    scoredChunks
-      // @ts-ignore
-      .filter((c) => c.score > 0.3)
-      // @ts-ignore
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
-      // @ts-ignore
-      .map((c) => c.content)
-      .join("\n---\n")
-  );
+    return {
+      content: chunk.content,
+      score: cosineSimilarity(vecA, jobEmbedding),
+    };
+  });
+
+  return scoredChunks
+    .filter((c) => !isNaN(c.score) && c.score > 0.3)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map((c) => c.content)
+    .join("\n---\n");
 }
 
 /**
@@ -555,17 +553,29 @@ async function _getRelevantResumeChunks(resumeId, jobEmbedding, topK = 3) {
  * @param {number[]} vecB
  */
 function cosineSimilarity(vecA, vecB) {
+  // Kiểm tra đầu vào có phải là mảng hợp lệ không
+  if (
+    !Array.isArray(vecA) ||
+    !Array.isArray(vecB) ||
+    vecA.length !== vecB.length
+  ) {
+    return 0;
+  }
+
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
 
   for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
+    // Ép kiểu số để chắc chắn không bị lỗi coerce từ ký tự
+    const valA = Number(vecA[i]);
+    const valB = Number(vecB[i]);
+
+    dotProduct += valA * valB;
+    normA += valA * valA;
+    normB += valB * valB;
   }
 
-  // Tránh lỗi chia cho 0
   if (normA === 0 || normB === 0) return 0;
 
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
