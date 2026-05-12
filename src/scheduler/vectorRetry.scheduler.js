@@ -8,6 +8,7 @@ const {
 } = require("../services/resumeVector.services");
 
 let scheduledTask = null;
+let isRuning = false;
 
 /**
 
@@ -20,7 +21,9 @@ const setupVectorSchedule = () => {
   // Structure: 'minutes hour days month day of the week'
 
   // '0 0 * * *' corresponds to 00:00 daily
-  scheduledTask = cron.schedule("0 0 * * *", async () => {
+  scheduledTask = cron.schedule("*/30 * * * *", async () => {
+    if (isRuning) return;
+    isRuning = true;
     console.log(
       "[SCHEDULE] Start scanning for faulty or unprocessed vector Jobs...",
     );
@@ -31,6 +34,7 @@ const setupVectorSchedule = () => {
         where: {
           OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
         },
+        take: 5,
       });
 
       console.log(
@@ -62,6 +66,11 @@ const setupVectorSchedule = () => {
       where: {
         OR: [{ vectorStatus: "PENDING" }, { vectorStatus: "FAILED" }],
       },
+      select: {
+        id: true,
+        userId: true,
+        fileUrl: true,
+      },
     });
 
     console.log(
@@ -70,7 +79,7 @@ const setupVectorSchedule = () => {
 
     for (const job of incompleteResumes) {
       // Re-processing (Do not use await to avoid loop bottleneck if a job fails)
-      processAndStoreResumeVector(job)
+      processAndStoreResumeVector(job, job.userId)
         .then(() => console.log(`[SCHEDULE] Re-processed Job ID: ${job.id}`))
 
         .catch((err) =>
