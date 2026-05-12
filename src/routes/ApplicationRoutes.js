@@ -28,6 +28,14 @@ router.get('/', ApplicationController.getMyApplications);
 router.get('/:id', ApplicationController.getApplicationDetail);
 
 /**
+ * @route   DELETE /api/applications/:id/rejected
+ * @desc    Xóa đơn ứng tuyển đã bị từ chối (chỉ khi status = "rejected")
+ * @access  Private
+ */
+router.delete('/:id/rejected', ApplicationController.deleteRejectedApplication); 
+
+
+/**
  * @route   DELETE /api/applications/:id
  * @desc    Rút đơn ứng tuyển (chỉ khi status = "submitted")
  * @access  Private

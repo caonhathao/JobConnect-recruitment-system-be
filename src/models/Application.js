@@ -23,7 +23,7 @@ const Application = sequelize.define("Application", {
     },
     status: {
         type: DataTypes.STRING,
-        defaultValue: 'submitted' // submitted, viewed, interview, rejected, hired
+        defaultValue: 'submitted' // 'submitted', 'under_review', 'interview', 'accepted' rejected ,
     },
     note_by_recruiter: {
         type: DataTypes.TEXT 
@@ -32,13 +32,19 @@ const Application = sequelize.define("Application", {
     applied_at: { 
         type: DataTypes.DATE, 
         defaultValue: DataTypes.NOW 
+    },
+    
+    is_deleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
     tableName: 'applications',
     timestamps: true,
     updatedAt: 'updated_at',
-    createdAt: 'applied_at' // Map created_at thành applied_at cho đúng ngữ nghĩa
-});    
+    createdAt: false,        // ← bỏ conflict, dùng applied_at thủ công
+});
+ 
 
 
 module.exports = Application

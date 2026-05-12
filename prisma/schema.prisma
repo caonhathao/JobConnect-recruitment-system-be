@@ -18,6 +18,10 @@ model applications {
   note_by_recruiter String?
   applied_at        DateTime? @db.Timestamptz(6)
   updated_at        DateTime  @db.Timestamptz(6)
+  is_deleted        Boolean   @default(false)
+
+  job       jobs  @relation(fields: [job_id], references: [id])
+  candidate users @relation(fields: [user_id], references: [id])
 }
 
 model bookmarks {
@@ -26,11 +30,14 @@ model bookmarks {
   job_id    String   @db.Uuid
   createdAt DateTime @db.Timestamptz(6)
   updatedAt DateTime @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id])
+  job  jobs  @relation(fields: [job_id], references: [id])
 }
 
 model candidate_profiles {
   id           String    @id @default(uuid()) @db.Uuid
-  user_id      String    @db.Uuid
+  user_id      String    @unique @db.Uuid
   headline     String?   @default("Chưa cập nhật") @db.VarChar(255)
   bio          String?
   website      String?   @db.VarChar(255)
@@ -39,11 +46,19 @@ model candidate_profiles {
   created_at   DateTime  @db.Timestamptz(6)
   updated_at   DateTime  @db.Timestamptz(6)
   deletedAt    DateTime? @db.Timestamptz(6)
+
+  user        users              @relation(fields: [user_id], references: [id])
+  experiences experiences[]
+  educations  educations[]
+  skills      candidate_skills[]
 }
 
 model candidate_skills {
   profile_id String @db.Uuid
   skill_id   String @db.Uuid
+
+  profile candidate_profiles @relation(fields: [profile_id], references: [id])
+  skill   skills             @relation(fields: [skill_id], references: [id])
 
   @@id([profile_id, skill_id])
 }
@@ -59,9 +74,12 @@ model companies {
   size             String?  @db.VarChar(255)
   status           String?  @default("pending") @db.VarChar(255)
   rejection_reason String?
-  user_id          String   @db.Uuid
+  user_id          String   @unique @db.Uuid
   created_at       DateTime @db.Timestamptz(6)
   updated_at       DateTime @db.Timestamptz(6)
+
+  user users  @relation(fields: [user_id], references: [id])
+  jobs jobs[]
 }
 
 model educations {
@@ -73,6 +91,8 @@ model educations {
   end_date    DateTime? @db.Date
   createdAt   DateTime  @db.Timestamptz(6)
   updatedAt   DateTime  @db.Timestamptz(6)
+
+  profile candidate_profiles @relation(fields: [profile_id], references: [id])
 }
 
 model experiences {
@@ -85,11 +105,16 @@ model experiences {
   description  String
   createdAt    DateTime  @db.Timestamptz(6)
   updatedAt    DateTime  @db.Timestamptz(6)
+
+  profile candidate_profiles @relation(fields: [profile_id], references: [id])
 }
 
 model job_skills {
   job_id   String @db.Uuid
   skill_id String @db.Uuid
+
+  job   jobs   @relation(fields: [job_id], references: [id])
+  skill skills @relation(fields: [skill_id], references: [id])
 
   @@id([job_id, skill_id])
 }
@@ -112,6 +137,11 @@ model jobs {
   views_count      Int?      @default(0)
   createdAt        DateTime  @db.Timestamptz(6)
   updatedAt        DateTime  @db.Timestamptz(6)
+
+  company      companies      @relation(fields: [company_id], references: [id])
+  applications applications[]
+  bookmarkedBy bookmarks[]
+  skills       job_skills[]
 }
 
 model resumes {
@@ -123,11 +153,16 @@ model resumes {
   is_default Boolean? @default(false)
   created_at DateTime @db.Timestamptz(6)
   updated_at DateTime @db.Timestamptz(6)
+
+  user users @relation(fields: [user_id], references: [id])
 }
 
 model skills {
   id   String @id @default(uuid()) @db.Uuid
   name String @unique @db.VarChar(255)
+
+  candidate_skills candidate_skills[]
+  job_skills       job_skills[]
 }
 
 model users {
@@ -142,4 +177,10 @@ model users {
   is_active     Boolean? @default(true)
   created_at    DateTime @db.Timestamptz(6)
   updated_at    DateTime @db.Timestamptz(6)
+
+  candidateProfile candidate_profiles?
+  companyProfile   companies?
+  resumes          resumes[]
+  applications     applications[]
+  bookmarks        bookmarks[]
 }

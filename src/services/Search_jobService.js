@@ -11,9 +11,15 @@ exports.searchJobs = async (filters) => {
     const pageNumber = parseInt(page);
     const offset = (pageNumber - 1) * pageSize;
 
-    const conditions = [{ 
-        status: 'approved' 
-    }];
+    const conditions = [
+        { status: 'approved' },
+        {
+            [Op.or]: [
+                { deadline: { [Op.gt]: sequelize.fn('NOW') } },
+                { deadline: null }
+            ]
+        }
+    ];
 
     // Keyword: tìm trong title, company.name, skill.name
     if (keyword) {
@@ -78,6 +84,6 @@ exports.searchJobs = async (filters) => {
         total_items: count,
         total_pages: Math.ceil(count / pageSize),
         current_page: pageNumber,
-        jobs: rows
+        jobs: rows.filter(job => !job.deadline || new Date(job.deadline) > new Date())
     };
 };

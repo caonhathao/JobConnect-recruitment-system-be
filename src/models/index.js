@@ -53,7 +53,7 @@ Skill.belongsToMany(Job, { through: Job_skill, foreignKey: 'skill_id', otherKey:
 
 // === GROUP 4: ỨNG TUYỂN (APPLICATIONS) ===
 // Job <-> Application (1 job có nhiều đơn ứng tuyển)
-Job.hasMany(Application, { foreignKey: 'job_id', as: 'applications' });
+Job.hasMany(Application, { foreignKey: 'job_id', as: 'applications', onDelete: 'CASCADE' });
 Application.belongsTo(Job, { foreignKey: 'job_id', as: 'job' });
 
 // User (Candidate) <-> Application (1 người ứng tuyển nhiều nơi)
