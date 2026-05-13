@@ -24,7 +24,7 @@ exports.createJob = async (req, res) => {
 exports.getMyJobs = async (req, res) => {
     try {
         const data = await JobManagementService.getMyJobs(req.user.id, req.query);
-        return res.status(200).json({ status: 'success', count: data.length, data });
+        return res.status(200).json({ status: 'success', data });
     } catch (error) {
         return handleError(res, error, 'lấy danh sách tin đăng');
     }

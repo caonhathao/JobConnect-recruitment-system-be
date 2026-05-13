@@ -29,20 +29,20 @@ exports.applyJob = async (userId, data) => {
         if (defaultResume) resumeUrl = defaultResume.fileUrl;
     }
 
-    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    const job  = await prisma.job.findUnique({ where: { id: jobId } });
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     const application = await prisma.application.create({
         data: {
             userId,
             jobId,
-            companyId: job?.companyId || null,
-            fullName: user?.fullName || '',
-            email: user?.email || '',
-            phone: user?.phone || '',
-            resumeUrl: resumeUrl,
+            companyId:   job?.companyId   || null,
+            fullName:    user?.fullName    || '',
+            email:       user?.email       || '',
+            phone:       user?.phone       || '',
+            resumeUrl:   resumeUrl,
             coverLetter: coverLetter?.trim() || null,
-            status: 'submitted'
+            status:      'submitted'
         }
     });
 
@@ -50,11 +50,12 @@ exports.applyJob = async (userId, data) => {
 };
 
 exports.getMyApplications = async (userId, filters = {}) => {
-    const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+    const pageSize   = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
     const pageNumber = Math.max(1, parseInt(filters.page) || 1);
-    const skip = (pageNumber - 1) * pageSize;
+    const skip       = (pageNumber - 1) * pageSize;
 
-    const where = { userId };
+    // ✅ camelCase và isDeleted
+    const where = { userId, isDeleted: false };
     if (filters.status) where.status = filters.status;
 
     const [count, applications] = await Promise.all([
@@ -64,64 +65,92 @@ exports.getMyApplications = async (userId, filters = {}) => {
             include: {
                 job: {
                     select: {
-                        id: true, title: true, location: true, jobType: true,
-                        salaryMin: true, salaryMax: true, deadline: true,
+                        id:       true,
+                        title:    true,
+                        location: true,
+                        jobType:  true,
+                        salaryMin: true,
+                        salaryMax: true,
+                        deadline: true,
                         company: { select: { name: true, logoUrl: true } }
                     }
                 }
             },
             orderBy: { createdAt: 'desc' },
-            take: pageSize,
-            skip
+            take:    pageSize,
+            skip               // ✅ đã định nghĩa
         })
     ]);
 
     return {
-        total_items: count,
-        total_pages: Math.ceil(count / pageSize),
+        total_items:  count,
+        total_pages:  Math.ceil(count / pageSize),
         current_page: pageNumber,
         applications: applications.map(app => ({
-            id: app.id,
-            status: app.status,
+            id:          app.id,
+            status:      app.status,
             coverLetter: app.coverLetter,
-            resumeUrl: app.resumeUrl,
-            appliedAt: app.createdAt,
-            createdAt: app.createdAt,
+            resumeUrl:   app.resumeUrl,
+            appliedAt:   app.createdAt,
             job: {
-                id: app.job?.id,
-                title: app.job?.title,
-                location: app.job?.location,
-                jobType: app.job?.jobType,
+                id:        app.job?.id,
+                title:     app.job?.title,
+                location:  app.job?.location,
+                jobType:   app.job?.jobType,
                 salaryMin: app.job?.salaryMin,
                 salaryMax: app.job?.salaryMax,
-                deadline: app.job?.deadline,
-                company: app.job?.company
+                deadline:  app.job?.deadline,
+                company:   app.job?.company
             }
         }))
     };
 };
-
 exports.getApplicationDetail = async (userId, applicationId) => {
     const app = await prisma.application.findFirst({
-        where: { id: applicationId, userId },
-        include: {
-            job: {
-                include: { company: true }
-            }
-        }
+        where:   { id: applicationId, userId },
+        include: { job: { include: { company: true } } }
     });
     if (!app) throw new Error('Không tìm thấy đơn ứng tuyển.');
     return app;
 };
 
+
+// ==============================================================================
+// 4. RÚT ĐƠN (chỉ khi status = submitted)
 exports.withdrawApplication = async (userId, applicationId) => {
-    const app = await prisma.application.findFirst({ where: { id: applicationId, userId } });
+    const app = await prisma.application.findFirst({
+        where: { id: applicationId, userId }
+    });
     if (!app) throw new Error('Không tìm thấy đơn ứng tuyển.');
 
     if (app.status !== 'submitted') {
         throw new Error('Chỉ có thể rút đơn khi hồ sơ đang ở trạng thái "Đã nộp".');
     }
 
-    await prisma.application.delete({ where: { id: applicationId } });
+    // ✅ Soft delete
+    await prisma.application.update({
+        where: { id: applicationId },
+        data:  { isDeleted: true }
+    });
     return true;
 };
+
+// ==============================================================================
+// 5. XÓA ĐƠN BỊ TỪ CHỐI
+exports.deleteRejectedApplication = async (userId, applicationId) => {
+    const app = await prisma.application.findFirst({
+        where: { id: applicationId, userId }
+    });
+    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển.');
+
+    if (app.status !== 'rejected') {
+        throw new Error('Chỉ có thể xóa đơn khi hồ sơ đã bị từ chối.');
+    }
+
+     await prisma.application.update({
+        where: { id: applicationId },
+        data:  { isDeleted: true } // Đã sửa thành isDeleted
+    });
+
+    return true;
+};  
