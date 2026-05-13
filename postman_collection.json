@@ -1,0 +1,1450 @@
+{
+	"info": {
+		"name": "JobConnect RAG System",
+		"description": "Full API collection for JobConnect recruitment system with RAG-powered AI chat. Features vector-based CV-job matching, Ollama/Qwen2.5 integration, and pgvector semantic search.\n\n## Pre-Requisites\n1. Create a Postman Environment with:\n   - `baseUrl` = `http://localhost:3000`\n   - `accessToken` (populated automatically by Login script)\n   - `refreshToken` (populated automatically by Login script)\n   - `resumeId` (populated by CV Upload script)\n   - `jobId` (populated by Search script)\n\n## Auth Flow\nLogin → accessToken auto-saved → all protected endpoints use `{{accessToken}}` via the collection-level Authorization header.\n\n## Demo Flow\n1. Register/Login\n2. Upload CV (PDF) → wait for vectorStatus = COMPLETED\n3. Chat: \"CV của tôi hợp với job nào?\"\n4. Chat: \"So sánh CV của tôi với job React Developer\"\n5. Search: Find jobs by keyword",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "JobConnect-QA"
+	},
+	"item": [
+		{
+			"name": "🏆 Authentication",
+			"description": "Register, Login, Refresh Token, and Logout endpoints. Login automatically saves accessToken and refreshToken into environment variables via post-response script.",
+			"item": [
+				{
+					"name": "Register (Candidate)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// Status Code Check",
+									"// =============================================",
+									"pm.test('Status 201 - Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"// =============================================",
+									"// Response Time Check (< 3000ms for register)",
+									"// =============================================",
+									"pm.test('Response time < 3000ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(3000);",
+									"});",
+									"",
+									"// =============================================",
+									"// Validate Response Structure",
+									"// =============================================",
+									"pm.test('Response has valid structure', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.have.property('id');",
+									"    pm.expect(json.data).to.have.property('accessToken');",
+									"    pm.expect(json.data).to.have.property('refreshToken');",
+									"    pm.expect(json.data).to.have.property('role');",
+									"});",
+									"",
+									"// =============================================",
+									"// Auto-Save Tokens to Environment",
+									"// =============================================",
+									"const json = pm.response.json();",
+									"if (json.data && json.data.accessToken) {",
+									"    pm.environment.set('accessToken', json.data.accessToken);",
+									"    pm.environment.set('refreshToken', json.data.refreshToken);",
+									"    console.log('[Register] Tokens saved to environment');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fullName\": \"Nguyễn Văn A\",\n  \"email\": \"candidate@gmail.com\",\n  \"phone\": \"0901234567\",\n  \"password\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "register"]
+						}
+					}
+				},
+				{
+					"name": "Register (Recruiter)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 201 - Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response time < 3000ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(3000);",
+									"});",
+									"",
+									"pm.test('Response has recruiter fields', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data.role).to.eql('recruiter');",
+									"    pm.expect(json.data).to.have.property('accessToken');",
+									"    pm.expect(json.data).to.have.property('refreshToken');",
+									"});",
+									"",
+									"const json = pm.response.json();",
+									"if (json.data && json.data.accessToken) {",
+									"    pm.environment.set('accessToken', json.data.accessToken);",
+									"    pm.environment.set('refreshToken', json.data.refreshToken);",
+									"    console.log('[Register Recruiter] Tokens saved');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fullName\": \"Admin Corp\",\n  \"email\": \"recruiter@gmail.com\",\n  \"phone\": \"0901234568\",\n  \"password\": \"123456\",\n  \"companyName\": \"ABC Corp\",\n  \"address\": \"Hồ Chí Minh\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "register"]
+						}
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// Status Code Check",
+									"// =============================================",
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// =============================================",
+									"// Response Time Check (< 2000ms)",
+									"// =============================================",
+									"pm.test('Response time < 2000ms', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+									"});",
+									"",
+									"// =============================================",
+									"// Validate Login Response Structure",
+									"// =============================================",
+									"pm.test('Login response has valid structure', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.have.property('id');",
+									"    pm.expect(json.data).to.have.property('email');",
+									"    pm.expect(json.data).to.have.property('fullName');",
+									"    pm.expect(json.data).to.have.property('role');",
+									"    pm.expect(json.data).to.have.property('accessToken');",
+									"    pm.expect(json.data).to.have.property('refreshToken');",
+									"    pm.expect(json.data.accessToken).to.match(/^eyJ/);",
+									"});",
+									"",
+									"// =============================================",
+									"// CRITICAL: Auto-Save Tokens to Environment",
+									"// These are used by ALL subsequent requests.",
+									"// =============================================",
+									"const json = pm.response.json();",
+									"if (json.data && json.data.accessToken) {",
+									"    pm.environment.set('accessToken', json.data.accessToken);",
+									"    pm.environment.set('refreshToken', json.data.refreshToken);",
+									"    pm.environment.set('userId', json.data.id);",
+									"    console.log('[Login] accessToken saved: ' + json.data.accessToken.substring(0, 20) + '...');",
+									"    console.log('[Login] userId saved: ' + json.data.id);",
+									"} else {",
+									"    console.warn('[Login] WARNING: No accessToken in response. Auth-dependent requests will fail.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"candidate@gmail.com\",\n  \"password\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has new accessToken', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('accessToken');",
+									"    pm.expect(json.accessToken).to.match(/^eyJ/);",
+									"});",
+									"",
+									"// Update the saved accessToken",
+									"const json = pm.response.json();",
+									"if (json.accessToken) {",
+									"    pm.environment.set('accessToken', json.accessToken);",
+									"    console.log('[Refresh] Token renewed');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/refresh-token",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "refresh-token"]
+						}
+					}
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Logout message', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.message).to.eql('Đăng xuất thành công');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "logout"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📄 Resume Management",
+			"description": "Upload, list, set default, and delete CVs. Resume IDs are auto-saved for use in chat requests.",
+			"item": [
+				{
+					"name": "Upload CV (PDF)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// Status Code Check (201 = accepted for processing)",
+									"// =============================================",
+									"pm.test('Status 201 - Upload accepted', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"// =============================================",
+									"// Validate Upload Response",
+									"// =============================================",
+									"pm.test('Upload response has valid structure', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json).to.have.property('data');",
+									"    pm.expect(json.data).to.have.property('id');",
+									"    pm.expect(json.data).to.have.property('fileUrl');",
+									"    pm.expect(json.data).to.have.property('isDefault');",
+									"    pm.expect(json.data).to.have.property('createdAt');",
+									"});",
+									"",
+									"// =============================================",
+									"// Save resumeId for downstream requests",
+									"// =============================================",
+									"const json = pm.response.json();",
+									"if (json.data && json.data.id) {",
+									"    pm.environment.set('resumeId', json.data.id);",
+									"    console.log('[Upload CV] resumeId saved: ' + json.data.id);",
+									"    console.log('[Upload CV] vectorStatus is PENDING. Wait for background processing...');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "cv",
+									"type": "file",
+									"src": "",
+									"description": "PDF file (max 5MB). After upload, the system asynchronously extracts text, chunks, and embeds it."
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes/upload",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes", "upload"]
+						}
+					}
+				},
+				{
+					"name": "List My CVs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// Status Code Check",
+									"// =============================================",
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// =============================================",
+									"// Validate List Response",
+									"// =============================================",
+									"pm.test('Response is an array of resumes', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.be.an('array');",
+									"    if (json.data.length > 0) {",
+									"        pm.expect(json.data[0]).to.have.property('id');",
+									"        pm.expect(json.data[0]).to.have.property('title');",
+									"        pm.expect(json.data[0]).to.have.property('fileUrl');",
+									"        pm.expect(json.data[0]).to.have.property('isDefault');",
+									"    }",
+									"});",
+									"",
+									"// =============================================",
+									"// Check vectorStatus polling hint",
+									"// =============================================",
+									"pm.test('Hint: Check vectorStatus in DB', function () {",
+									"    console.log('[List CVs] To check vector completion, use Get CV Status endpoint or check DB.');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes"]
+						}
+					}
+				},
+				{
+					"name": "Get CV Vector Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// This endpoint checks vectorStatus by querying",
+									"// the resumes list and filtering for the saved resumeId.",
+									"// =============================================",
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const json = pm.response.json();",
+									"const resumeId = pm.environment.get('resumeId');",
+									"",
+									"if (json.data && resumeId) {",
+									"    const target = json.data.find(r => r.id === resumeId);",
+									"    if (target) {",
+									"        console.log('[Status] Resume found in list');",
+									"        console.log('[Status] NOTE: vectorStatus is NOT exposed in GET /api/resumes.');",
+									"        console.log('[Status] Check database directly or wait ~10s after upload.');",
+									"    } else {",
+									"        console.warn('[Status] Resume ID ' + resumeId + ' not found in list.');",
+									"    }",
+									"}",
+									"",
+									"// =============================================",
+									"// CRITICAL LOGIC CHECK: NaN / Double Brackets",
+									"// If this endpoint returned 500, flag it immediately.",
+									"// =============================================",
+									"if (pm.response.code === 500) {",
+									"    const errJson = pm.response.json();",
+									"    const errMsg = (errJson.error || errJson.message || '').toLowerCase();",
+									"    ",
+									"    if (errMsg.includes('nan') || errMsg.includes('is nan')) {",
+									"        console.error('[BUG DETECTED] NaN error in vector computation.');",
+									"        console.error('[BUG] Check cosineSimilarity or JSON.parse in jobChat.services.js');",
+									"        pm.test('CRITICAL: NaN bug detected!', function () {",
+									"            pm.expect.fail('NaN detected. Fix cosineSimilarity input validation.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errMsg.includes('input syntax') || errMsg.includes('vector')) {",
+									"        console.error('[BUG DETECTED] Vector format error - likely double brackets issue.');",
+									"        console.error('[BUG] Check jobChat.services.js:398 - v.embedding wrapping.');",
+									"        pm.test('CRITICAL: Double-bracket bug detected!', function () {",
+									"            pm.expect.fail('Vector format error. Fix [${v.embedding}] → v.embedding');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes"]
+						}
+					}
+				},
+				{
+					"name": "Set Default CV",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Default CV response', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.message).to.eql('Đặt CV mặc định thành công');",
+									"    pm.expect(json.data.isDefault).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes/{{resumeId}}/default",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes", "{{resumeId}}", "default"]
+						}
+					}
+				},
+				{
+					"name": "Delete CV",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Delete message', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.message).to.eql('Xóa CV thành công');",
+									"});",
+									"",
+									"// Clear resumeId from environment since it's deleted",
+									"pm.environment.unset('resumeId');",
+									"console.log('[Delete CV] resumeId cleared from environment');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes/{{resumeId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes", "{{resumeId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🤖 RAG Chat (Core Feature)",
+			"description": "AI-powered job assistant using RAG pipeline: intent classification → vector search → Ollama Qwen2.5 response. All requests require a processed CV (vectorStatus = COMPLETED) for Group 2/3 queries.",
+			"item": [
+				{
+					"name": "Chat - Group 1: Job Search",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// Status Code Check",
+									"// =============================================",
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// =============================================",
+									"// Response Time Check (AI tasks: allow < 15000ms)",
+									"// Ollama + HuggingFace API calls = slower than normal API",
+									"// =============================================",
+									"pm.test('Response time < 15000ms (AI generation)', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(15000);",
+									"});",
+									"",
+									"// =============================================",
+									"// Validate AI Response is NOT null/empty",
+									"// =============================================",
+									"pm.test('AI response (ans) is not null or empty', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('ans');",
+									"    pm.expect(json.ans).to.not.be.null;",
+									"    pm.expect(json.ans).to.not.be.empty;",
+									"    console.log('[Chat] AI response length: ' + json.ans.length + ' chars');",
+									"    console.log('[Chat] Response preview: ' + json.ans.substring(0, 120) + '...');",
+									"});",
+									"",
+									"// =============================================",
+									"// CRITICAL LOGIC CHECK: NaN / Double Brackets",
+									"// =============================================",
+									"if (pm.response.code === 500) {",
+									"    const errJson = pm.response.json();",
+									"    const errMsg = JSON.stringify(errJson).toLowerCase();",
+									"    ",
+									"    if (errMsg.includes('input syntax') || errMsg.includes('vector')) {",
+									"        console.error('[BUG DETECTED] Double-bracket bug in Group 1 query.');",
+									"        console.error('[FIX] Check jobChat.services.js - embedding::text handling');",
+									"        pm.test('CRITICAL: Vector syntax error (double brackets) (Group 1)', function () {",
+									"            pm.expect.fail('PostgreSQL vector syntax error. Fix embedding string format.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errMsg.includes('nan') || errMsg.includes('is nan') || errMsg.includes('isnan')) {",
+									"        console.error('[BUG DETECTED] NaN in similarity computation.');",
+									"        pm.test('CRITICAL: NaN bug detected in vector math (Group 1)', function () {",
+									"            pm.expect.fail('NaN in similarity. Check cosineSimilarity array validation.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errMsg.includes('ollama') || errMsg.includes('connect') || errMsg.includes('econnrefused')) {",
+									"        console.error('[INFRA] Ollama server is not running! Start with: ollama run qwen2.5:3b');",
+									"        pm.test('CRITICAL: Ollama connection failed (Group 1)', function () {",
+									"            pm.expect.fail('Ollama unavailable. Check localhost:11434');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"Tôi muốn tìm việc làm NodeJS ở Hồ Chí Minh\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Chat - Group 2: CV-Based Job Search",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// CRITICAL: This endpoint requires vectorStatus = COMPLETED",
+									"// If upload was recent, vector may still be PENDING.",
+									"// =============================================",
+									"pm.test('Status 200 - OK (or informative 200 for PENDING)', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200]);",
+									"});",
+									"",
+									"pm.test('Response time < 20000ms (AI + vector search)', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(20000);",
+									"});",
+									"",
+									"pm.test('AI response (ans) is present', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('ans');",
+									"    console.log('[CV Search] Response: ' + (json.ans || '').substring(0, 150) + '...');",
+									"});",
+									"",
+									"// =============================================",
+									"// Check if vector is still PENDING",
+									"// =============================================",
+									"const json = pm.response.json();",
+									"if (json.ans && json.ans.includes('đang được xử lý')) {",
+									"    console.warn('[CV Search] CV vector still PENDING. Retry in 10-15s.');",
+									"    pm.test('Vector processing in progress - retry needed', function () {",
+									"        pm.expect(json.ans).to.include('đang được xử lý');",
+									"    });",
+									"}",
+									"",
+									"// =============================================",
+									"// CRITICAL: Detect known bugs in vector pipeline",
+									"// =============================================",
+									"if (pm.response.code === 500) {",
+									"    const errBody = JSON.stringify(pm.response.json()).toLowerCase();",
+									"    ",
+									"    if (errBody.includes('join') || errBody.includes('is not a function')) {",
+									"        console.error('[BUG DETECTED] v.embedding.join is not a function (line 398 old bug).');",
+									"        pm.test('CRITICAL: String.join crash (Group 2 - jobChat.js:398)', function () {",
+									"            pm.expect.fail('v.embedding is a string, has no .join(). Fix mapping.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errBody.includes('input syntax') || errBody.includes('vector')) {",
+									"        console.error('[BUG DETECTED] Double-bracket vector syntax error (Group 2).');",
+									"        console.error('[FIX] jobChat.services.js:398 - change `[${v.embedding}]` to `v.embedding`');",
+									"        pm.test('CRITICAL: Double-bracket bug (Group 2 - jobChat.js:398)', function () {",
+									"            pm.expect.fail('[[vector]] instead of [vector]. Remove extra brackets.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errBody.includes('ollama') || errBody.includes('econnrefused')) {",
+									"        console.error('[INFRA] Ollama not running.');",
+									"        pm.test('CRITICAL: Ollama unavailable (Group 2)', function () {",
+									"            pm.expect.fail('Ollama connection refused.');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"CV của tôi hợp với job nào?\",\n  \"resumeId\": \"{{resumeId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Chat - Group 3: CV vs Job Comparison",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// =============================================",
+									"// CV_VS_JOB: Compares user's CV against a specific job",
+									"// Uses: mean vector of job chunks + cosine similarity",
+									"// Returns: RAG analysis from Ollama with skill matching",
+									"// =============================================",
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time < 20000ms (RAG pipeline)', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(20000);",
+									"});",
+									"",
+									"pm.test('AI comparison response is present', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('ans');",
+									"    pm.expect(json.ans).to.not.be.null;",
+									"    console.log('[CV_VS_JOB] Analysis: ' + (json.ans || '').substring(0, 200));",
+									"});",
+									"",
+									"// =============================================",
+									"// Check for expected patterns in AI response",
+									"// =============================================",
+									"const json = pm.response.json();",
+									"if (json.ans) {",
+									"    const hasSkillMatch = /kỹ năng|kinh nghiệm|phù hợp|mạnh|yếu/i.test(json.ans);",
+									"    console.log('[CV_VS_JOB] Contains skill-match analysis: ' + hasSkillMatch);",
+									"}",
+									"",
+									"// =============================================",
+									"// NaN Guard: verify similarity computed correctly",
+									"// =============================================",
+									"if (pm.response.code === 500) {",
+									"    const errBody = JSON.stringify(pm.response.json()).toLowerCase();",
+									"    ",
+									"    if (errBody.includes('nan') || errBody.includes('cosine')) {",
+									"        console.error('[BUG DETECTED] NaN in cosine similarity (Group 3 - mean vector path).');",
+									"        console.error('[FIX] Check _getRelevantResumeChunks JSON.parse guard at line 531.');",
+									"        pm.test('CRITICAL: NaN in cosine similarity (Group 3)', function () {",
+									"            pm.expect.fail('NaN detected. Fix vecA/vecB array validation.');",
+									"        });",
+									"    }",
+									"    ",
+									"    if (errBody.includes('vector') && errBody.includes('input')) {",
+									"        console.error('[BUG DETECTED] Vector input syntax error (Group 3).');",
+									"        pm.test('CRITICAL: Vector format error (Group 3)', function () {",
+									"            pm.expect.fail('Embedding format issue.');",
+									"        });",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"So sánh CV của tôi với job React Developer, đánh giá mức độ phù hợp?\",\n  \"resumeId\": \"{{resumeId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Chat - Group 4: Company Info",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time < 15000ms (Ollama generation)', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(15000);",
+									"});",
+									"",
+									"pm.test('Company info response is present', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('ans');",
+									"    pm.expect(json.ans).to.not.be.empty;",
+									"    console.log('[Company Info] Response: ' + (json.ans || '').substring(0, 150) + '...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"Cho tôi biết thông tin về công ty FPT?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Chat - Group 5: Greeting",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response time < 10000ms (simple chat)', function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(10000);",
+									"});",
+									"",
+									"pm.test('Greeting response is present', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('ans');",
+									"    pm.expect(json.ans).to.not.be.empty;",
+									"    console.log('[Greeting] Bot says: ' + json.ans);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"Xin chào, bạn có thể giúp gì cho tôi?\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Get Chat History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response is an array of chat history', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('history');",
+									"    pm.expect(json.history).to.be.an('array');",
+									"    if (json.history.length > 0) {",
+									"        pm.expect(json.history[0]).to.have.property('question');",
+									"        pm.expect(json.history[0]).to.have.property('answer');",
+									"        console.log('[History] Last question: ' + json.history[0].question);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/chat-history/chat-history",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat-history", "chat-history"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🔍 Search & Comparison",
+			"description": "Public job search, AI suggestions, and bookmark actions for testing end-to-end flow.",
+			"item": [
+				{
+					"name": "Search Jobs (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Search returns valid structure', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.have.property('jobs');",
+									"    pm.expect(json.data.jobs).to.be.an('array');",
+									"});",
+									"",
+									"// Save first job's ID for bookmark/comparison tests",
+									"const json = pm.response.json();",
+									"if (json.data && json.data.jobs && json.data.jobs.length > 0) {",
+									"    pm.environment.set('jobId', json.data.jobs[0].id);",
+									"    console.log('[Search] First jobId saved: ' + json.data.jobs[0].id);",
+									"    pm.environment.set('jobTitle', json.data.jobs[0].title);",
+									"    console.log('[Search] First job title: ' + json.data.jobs[0].title);",
+									"} else {",
+									"    console.warn('[Search] No jobs found in search results.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/search-jobs/search-jobs?keyword=NodeJS&location=Hồ Chí Minh&page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "search-jobs", "search-jobs"],
+							"query": [
+								{
+									"key": "keyword",
+									"value": "NodeJS"
+								},
+								{
+									"key": "location",
+									"value": "Hồ Chí Minh"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Job Detail (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Job detail has required fields', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('data');",
+									"    pm.expect(json.data).to.have.property('id');",
+									"    pm.expect(json.data).to.have.property('title');",
+									"    pm.expect(json.data).to.have.property('description');",
+									"    pm.expect(json.data).to.have.property('company');",
+									"    console.log('[Job Detail] Title: ' + json.data.title);",
+									"    console.log('[Job Detail] Company: ' + (json.data.company?.name || 'N/A'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/public/jobs/{{jobId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "public", "jobs", "{{jobId}}"]
+						}
+					}
+				},
+				{
+					"name": "Get AI Job Suggestions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Suggestions have valid similarity scores', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.be.an('array');",
+									"    if (json.data.length > 0) {",
+									"        pm.expect(json.data[0]).to.have.property('similarityScore');",
+									"        pm.expect(json.data[0].similarityScore).to.be.a('number');",
+									"        pm.expect(json.data[0].similarityScore).to.be.within(0, 1);",
+									"        console.log('[Suggestions] Top match: ' + json.data[0].title);",
+									"        console.log('[Suggestions] Similarity: ' + json.data[0].similarityScore);",
+									"        pm.environment.set('jobId', json.data[0].id);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/suggestions?limit=5",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "suggestions"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Toggle Bookmark Job",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Bookmark toggle response', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('bookmarked');",
+									"    pm.expect(json).to.have.property('message');",
+									"    console.log('[Bookmark] Status: ' + (json.bookmarked ? 'Saved' : 'Unsaved'));",
+									"    console.log('[Bookmark] Message: ' + json.message);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/bookmarks/{{jobId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bookmarks", "{{jobId}}"]
+						}
+					}
+				},
+				{
+					"name": "Get Company Detail (Public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 - OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Company detail has required fields', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('data');",
+									"    pm.expect(json.data).to.have.property('name');",
+									"    pm.expect(json.data).to.have.property('description');",
+									"    pm.expect(json.data).to.have.property('address');",
+									"    pm.expect(json.data).to.have.property('city');",
+									"    console.log('[Company] Name: ' + json.data.name);",
+									"    console.log('[Company] Address: ' + (json.data.address || '') + ', ' + (json.data.city || ''));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/public/companies/{{companyId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "public", "companies", "{{companyId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "⚡ Demo Flow (Sequential)",
+			"description": "Complete end-to-end demo: Login → Upload CV → Wait for Vectorization → Chat (CV Search + CV vs Job) → Verify. Run these in order with status polling between CV upload and chat.",
+			"item": [
+				{
+					"name": "Step 1: Login as Candidate",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Login OK', () => {",
+									"    pm.response.to.have.status(200);",
+									"    const j = pm.response.json();",
+									"    pm.environment.set('accessToken', j.data.accessToken);",
+									"    pm.environment.set('userId', j.data.id);",
+									"    console.log('✓ Logged in. User ID: ' + j.data.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"candidate@gmail.com\",\n  \"password\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Step 2: Upload CV (PDF)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Upload OK', () => {",
+									"    pm.response.to.have.status(201);",
+									"    const j = pm.response.json();",
+									"    pm.environment.set('resumeId', j.data.id);",
+									"    console.log('✓ CV uploaded. Resume ID: ' + j.data.id);",
+									"    console.log('⏳ Background vectorization started. Wait ~10-15 seconds...');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "cv",
+									"type": "file",
+									"src": ""
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/resumes/upload",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "resumes", "upload"]
+						}
+					}
+				},
+				{
+					"name": "Step 3: Chat - CV-Based Job Match",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Chat response OK', () => {",
+									"    pm.response.to.have.status(200);",
+									"    const j = pm.response.json();",
+									"    pm.expect(j.ans).to.not.be.null;",
+									"    pm.expect(j.ans).to.not.be.empty;",
+									"    console.log('✓ AI Response received (' + j.ans.length + ' chars)');",
+									"    console.log('---');",
+									"    console.log(j.ans.substring(0, 500));",
+									"    console.log('---');",
+									"    ",
+									"    if (j.ans.includes('đang được xử lý')) {",
+									"        console.warn('⚠ Vector still PENDING. Re-run after 15s.');",
+									"    }",
+									"});",
+									"",
+									"// Detect NaN / Vector bugs",
+									"if (pm.response.code === 500) {",
+									"    const err = JSON.stringify(pm.response.json()).toLowerCase();",
+									"    if (err.includes('input syntax') || err.includes('vector'))",
+									"        console.error('[BUG] Double-bracket vector error. Fix jobChat.js:398');",
+									"    if (err.includes('nan'))",
+									"        console.error('[BUG] NaN in similarity. Fix cosineSimilarity.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"CV của tôi hợp với job nào?\",\n  \"resumeId\": \"{{resumeId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				},
+				{
+					"name": "Step 4: Chat - CV vs Specific Job",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('CV_VS_JOB comparison OK', () => {",
+									"    pm.response.to.have.status(200);",
+									"    const j = pm.response.json();",
+									"    pm.expect(j.ans).to.not.be.null;",
+									"    console.log('✓ Comparison analysis (' + j.ans.length + ' chars)');",
+									"    console.log('---');",
+									"    console.log(j.ans.substring(0, 500));",
+									"    console.log('---');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"question\": \"So sánh CV của tôi với job NodeJS Developer, đánh giá mức độ phù hợp và đề xuất kỹ năng cần cải thiện?\",\n  \"resumeId\": \"{{resumeId}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/chat/chat",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "chat", "chat"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"exec": [
+					"// Pre-request: Verify critical env vars exist",
+					"const required = ['baseUrl', 'accessToken'];",
+					"const missing = required.filter(k => !pm.environment.get(k));",
+					"if (missing.length > 0) {",
+					"    console.warn('[Pre-Req] Missing env vars: ' + missing.join(', '));",
+					"    console.warn('[Pre-Req] Run Login first to populate tokens.');",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					"// Global test: Log all 500 errors with context",
+					"if (pm.response.code >= 500) {",
+					"    const reqInfo = pm.request.method + ' ' + pm.request.url;",
+					"    const resBody = pm.response.text().substring(0, 300);",
+					"    console.error('[Global 500] ' + reqInfo);",
+					"    console.error('[Global 500] Body: ' + resBody);",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}

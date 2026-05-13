@@ -1,6 +1,8 @@
 require("dotenv").config();
 const process = require("process");
 const express = require("express");
+const path = require("path");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -14,7 +16,7 @@ const helmet = require("helmet");
 
 // Cấu hình Middleware
 app.use(
-  helmet({
+  helmet.default({
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Cho phép load file tĩnh từ origin khác (PDF Viewer)
   }),
 );
@@ -24,11 +26,7 @@ app.use(express.json());
 
 // Serve file tĩnh (avatar, CV PDF...)
 // eslint-disable-next-line no-undef
-app.use(
-  "/uploads",
-  express.static(require("path").join(__dirname, "src/uploads")),
-);
-
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // CRUD-methods , create-post, read-get, update-put, delete-delete
 // route mặc đinh
 // Import routes
@@ -49,8 +47,10 @@ const adminJobRoutes = require("./src/routes/AdminJobRoutes");
 const adminReportRoutes = require("./src/routes/AdminReportRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const searchJobRoutes = require("./src/routes/Search_jobRoutes");
-const jobChatRoutes = require('./src/routes/jobChat.routers');
-const { setupVectorSchedule } = require("./src/scheduler/vectorRetry.scheduler");
+const jobChatRoutes = require("./src/routes/jobChat.routers");
+const {
+  setupVectorSchedule,
+} = require("./src/scheduler/vectorRetry.scheduler");
 // Router công khai
 const publicRoutes = require("./src/routes/PublicRoutes");
 // Routes
@@ -71,8 +71,8 @@ app.use("/api/employer/logo", employerRoutes);
 app.use("/api/employer/jobs", jobManagementRoutes);
 app.use("/api/employer/applicants", applicantRoutes);
 app.use("/api/employer/dashboard", dashboardRoutes);
-app.use('/api/chat', jobChatRoutes);
-app.use('/api/chat-history', jobChatRoutes);
+app.use("/api/chat", jobChatRoutes);
+app.use("/api/chat-history", jobChatRoutes);
 
 // --- Admin ---
 app.use("/api/admin/companies", adminCompanyRoutes);
