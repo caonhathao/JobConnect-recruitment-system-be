@@ -1,205 +1,245 @@
-const prisma = require('../config/prisma');
-const path = require('path');
-const fs = require('fs');
+const prisma = require("../config/prisma");
+const path = require("path");
+const fs = require("fs");
+const process = require("process");
 
 const _getCompanyId = async (userId) => {
-    const company = await prisma.company.findUnique({ where: { userId } });
-    if (!company) throw new Error('Bạn chưa có hồ sơ công ty.');
-    return company.id;
+  const company = await prisma.company.findUnique({ where: { userId } });
+  if (!company) throw new Error("Bạn chưa có hồ sơ công ty.");
+  return company.id;
 };
 
 const _getJobIds = async (companyId) => {
-    const myJobs = await prisma.job.findMany({
-        where: { companyId },
-        select: { id: true }
-    });
-    return myJobs.map(j => j.id);
+  const myJobs = await prisma.job.findMany({
+    where: { companyId },
+    select: { id: true },
+  });
+  return myJobs.map((j) => j.id);
 };
 
 exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
-    const companyId = await _getCompanyId(userId);
+  const companyId = await _getCompanyId(userId);
 
-    const job = await prisma.job.findFirst({ where: { id: jobId, companyId } });
-    if (!job) throw new Error('Tin tuyển dụng không tồn tại hoặc không thuộc công ty bạn.');
+  const job = await prisma.job.findFirst({ where: { id: jobId, companyId } });
+  if (!job)
+    throw new Error(
+      "Tin tuyển dụng không tồn tại hoặc không thuộc công ty bạn.",
+    );
 
-    const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
-    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
-    const skip = (pageNumber - 1) * pageSize;
+  const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+  const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+  const skip = (pageNumber - 1) * pageSize;
 
-    const where = { jobId };
-    if (filters.status) where.status = filters.status;
+  const where = { jobId };
+  if (filters.status) where.status = filters.status;
 
-    const [count, applications] = await Promise.all([
-        prisma.application.count({ where }),
-        prisma.application.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        id: true, fullName: true, email: true, phone: true, avatarUrl: true,
-                        candidateProfile: {
-                            select: {
-                                headline: true, summary: true, address: true, city: true,
-                                dateOfBirth: true, gender: true
-                            }
-                        }
-                    }
-                }
+  const [count, applications] = await Promise.all([
+    prisma.application.count({ where }),
+    prisma.application.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            candidateProfile: {
+              select: {
+                headline: true,
+                summary: true,
+                address: true,
+                city: true,
+                dateOfBirth: true,
+                gender: true,
+              },
             },
-            orderBy: { createdAt: 'desc' },
-            take: pageSize,
-            skip
-        })
-    ]);
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: pageSize,
+      skip,
+    }),
+  ]);
 
-    return {
-        total_items: count,
-        total_pages: Math.ceil(count / pageSize),
-        current_page: pageNumber,
-        applications: applications.map(app => ({
-            applicationId: app.id,
-            status: app.status,
-            coverLetter: app.coverLetter,
-            resumeUrl: app.resumeUrl,
-            appliedAt: app.createdAt,
-            candidate: {
-                id: app.user?.id,
-                fullName: app.user?.fullName,
-                email: app.user?.email,
-                phone: app.user?.phone,
-                avatarUrl: app.user?.avatarUrl,
-                headline: app.user?.candidateProfile?.headline,
-                summary: app.user?.candidateProfile?.summary,
-                address: app.user?.candidateProfile?.address,
-                city: app.user?.candidateProfile?.city,
-                dateOfBirth: app.user?.candidateProfile?.dateOfBirth,
-                gender: app.user?.candidateProfile?.gender
-            }
-        }))
-    };
+  return {
+    total_items: count,
+    total_pages: Math.ceil(count / pageSize),
+    current_page: pageNumber,
+    applications: applications.map((app) => ({
+      applicationId: app.id,
+      status: app.status,
+      coverLetter: app.coverLetter,
+      resumeUrl: app.resumeUrl,
+      appliedAt: app.createdAt,
+      candidate: {
+        id: app.user?.id,
+        fullName: app.user?.fullName,
+        email: app.user?.email,
+        phone: app.user?.phone,
+        avatarUrl: app.user?.avatarUrl,
+        headline: app.user?.candidateProfile?.headline,
+        summary: app.user?.candidateProfile?.summary,
+        address: app.user?.candidateProfile?.address,
+        city: app.user?.candidateProfile?.city,
+        dateOfBirth: app.user?.candidateProfile?.dateOfBirth,
+        gender: app.user?.candidateProfile?.gender,
+      },
+    })),
+  };
 };
 
 exports.getAllApplicants = async (userId, filters = {}) => {
-    const companyId = await _getCompanyId(userId);
-    const jobIds = await _getJobIds(companyId);
+  const companyId = await _getCompanyId(userId);
+  const jobIds = await _getJobIds(companyId);
 
-    const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
-    const pageNumber = Math.max(1, parseInt(filters.page) || 1);
-    const skip = (pageNumber - 1) * pageSize;
+  const pageSize = Math.min(50, Math.max(1, parseInt(filters.limit) || 10));
+  const pageNumber = Math.max(1, parseInt(filters.page) || 1);
+  const skip = (pageNumber - 1) * pageSize;
 
-    if (jobIds.length === 0) {
-        return { total_items: 0, total_pages: 0, current_page: pageNumber, applications: [] };
-    }
-
-    const where = { jobId: { in: jobIds } };
-    if (filters.status) where.status = filters.status;
-
-    const [count, applications] = await Promise.all([
-        prisma.application.count({ where }),
-        prisma.application.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        id: true, fullName: true, email: true, phone: true, avatarUrl: true,
-                        candidateProfile: {
-                            include: {
-                                experiences: true,
-                                educations: true,
-                                skills: { include: { skill: true } }
-                            }
-                        }
-                    }
-                },
-                job: { select: { id: true, title: true } }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: pageSize,
-            skip
-        })
-    ]);
-
+  if (jobIds.length === 0) {
     return {
-        total_items: count,
-        total_pages: Math.ceil(count / pageSize),
-        current_page: pageNumber,
-        applications: applications.map(app => ({
-            applicationId: app.id,
-            status: app.status,
-            resumeUrl: app.resumeUrl,
-            appliedAt: app.createdAt,
-            job: { id: app.job?.id, title: app.job?.title },
-            candidate: {
-                id: app.user?.id,
-                fullName: app.user?.fullName,
-                email: app.user?.email,
-                phone: app.user?.phone,
-                avatarUrl: app.user?.avatarUrl,
-                candidateProfile: app.user?.candidateProfile ? {
-                    ...app.user.candidateProfile,
-                    skills: app.user.candidateProfile.skills.map(cs => cs.skill)
-                } : null
-            }
-        }))
+      total_items: 0,
+      total_pages: 0,
+      current_page: pageNumber,
+      applications: [],
     };
+  }
+
+  const where = { jobId: { in: jobIds } };
+  if (filters.status) where.status = filters.status;
+
+  const [count, applications] = await Promise.all([
+    prisma.application.count({ where }),
+    prisma.application.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            candidateProfile: {
+              include: {
+                experiences: true,
+                educations: true,
+                skills: { include: { skill: true } },
+              },
+            },
+          },
+        },
+        job: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: pageSize,
+      skip,
+    }),
+  ]);
+
+  return {
+    total_items: count,
+    total_pages: Math.ceil(count / pageSize),
+    current_page: pageNumber,
+    applications: applications.map((app) => ({
+      applicationId: app.id,
+      status: app.status,
+      resumeUrl: app.resumeUrl,
+      appliedAt: app.createdAt,
+      job: { id: app.job?.id, title: app.job?.title },
+      candidate: {
+        id: app.user?.id,
+        fullName: app.user?.fullName,
+        email: app.user?.email,
+        phone: app.user?.phone,
+        avatarUrl: app.user?.avatarUrl,
+        candidateProfile: app.user?.candidateProfile
+          ? {
+              ...app.user.candidateProfile,
+              skills: app.user.candidateProfile.skills.map((cs) => cs.skill),
+            }
+          : null,
+      },
+    })),
+  };
 };
 
 exports.getApplicationDetail = async (userId, applicationId) => {
-    const companyId = await _getCompanyId(userId);
-    const jobIds = await _getJobIds(companyId);
+  const companyId = await _getCompanyId(userId);
+  const jobIds = await _getJobIds(companyId);
 
-    const app = await prisma.application.findFirst({
-        where: { id: applicationId, jobId: { in: jobIds } },
-        include: {
-            user: {
-                select: {
-                    id: true, fullName: true, email: true, phone: true, avatarUrl: true,
-                    candidateProfile: {
-                        include: {
-                            experiences: true,
-                            educations: true,
-                            skills: { include: { skill: true } }
-                        }
-                    }
-                }
+  const app = await prisma.application.findFirst({
+    where: { id: applicationId, jobId: { in: jobIds } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+          candidateProfile: {
+            include: {
+              experiences: true,
+              educations: true,
+              skills: { include: { skill: true } },
             },
-            job: { select: { id: true, title: true, location: true, jobType: true } }
-        }
-    });
+          },
+        },
+      },
+      job: { select: { id: true, title: true, location: true, jobType: true } },
+    },
+  });
 
-    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.');
+  if (!app)
+    throw new Error(
+      "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.",
+    );
 
-    if (app.user?.candidateProfile?.skills) {
-        app.user.candidateProfile.skills = app.user.candidateProfile.skills.map(cs => cs.skill);
-    }
+  if (app.user?.candidateProfile?.skills) {
+    app.user.candidateProfile.skills = app.user.candidateProfile.skills.map(
+      (cs) => cs.skill,
+    );
+  }
 
-    return app;
+  return app;
 };
 
-exports.getCvFile = async (userId, applicationId, mode = 'view') => {
-    const companyId = await _getCompanyId(userId);
-    const jobIds = await _getJobIds(companyId);
+exports.getCvFile = async (userId, applicationId, mode = "view") => {
+  const companyId = await _getCompanyId(userId);
+  const jobIds = await _getJobIds(companyId);
 
-    const app = await prisma.application.findFirst({
-        where: { id: applicationId, jobId: { in: jobIds } }
-    });
+  const app = await prisma.application.findFirst({
+    where: { id: applicationId, jobId: { in: jobIds } },
+  });
 
-    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.');
-    if (!app.resumeUrl) throw new Error('Ứng viên này chưa đính kèm CV.');
+  if (!app)
+    throw new Error(
+      "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.",
+    );
+  if (!app.resumeUrl) throw new Error("Ứng viên này chưa đính kèm CV.");
 
-    if (app.resumeUrl.startsWith('http://') || app.resumeUrl.startsWith('https://')) {
-        return {
-            fileUrl: app.resumeUrl,
-            fileName: path.basename(app.resumeUrl),
-            mode,
-            isRemote: true
-        };
-    }
+  if (
+    app.resumeUrl.startsWith("http://") ||
+    app.resumeUrl.startsWith("https://")
+  ) {
+    return {
+      fileUrl: app.resumeUrl,
+      fileName: path.basename(app.resumeUrl),
+      mode,
+      isRemote: true,
+    };
+  }
 
-    const filePath = path.join(__dirname, '..', app.resumeUrl);
-    if (!fs.existsSync(filePath)) throw new Error('File CV không tồn tại trên server.');
+  // const filePath = path.join(__dirname, '..', app.resumeUrl);
+  const filePath = path.join(process.cwd(), app.resumeUrl.replace(/^\//, ""));
+  if (!fs.existsSync(filePath))
+    throw new Error("File CV không tồn tại trên server.");
 
-    return { filePath, fileName: path.basename(filePath), mode };
+  return { filePath, fileName: path.basename(filePath), mode };
 };
 
 // ==============================================================================
@@ -221,10 +261,13 @@ exports.updateApplicationStatus = async (userId, applicationId, status) => {
     const companyId = await _getCompanyId(userId);
     const jobIds    = await _getJobIds(companyId);
 
-    const app = await prisma.application.findFirst({
-        where: { id: applicationId, jobId: { in: jobIds } }
-    });
-    if (!app) throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.');
+  const app = await prisma.application.findFirst({
+    where: { id: applicationId, jobId: { in: jobIds } },
+  });
+  if (!app)
+    throw new Error(
+      "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.",
+    );
 
     const allowedNext = VALID_TRANSITIONS[app.status];
 
@@ -238,12 +281,12 @@ exports.updateApplicationStatus = async (userId, applicationId, status) => {
         throw new Error(`Không thể chuyển từ "${app.status}" sang "${status}".`);
     }
 
-    await prisma.application.update({
-        where: { id: applicationId },
-        data: { status }
-    });
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { status },
+  });
 
-    return await prisma.application.findUnique({ where: { id: applicationId } });
+  return await prisma.application.findUnique({ where: { id: applicationId } });
 };
 
 // ==============================================================================

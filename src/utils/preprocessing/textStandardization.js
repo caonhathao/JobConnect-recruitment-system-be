@@ -1,3 +1,5 @@
+const { STOP_WORDS, ABBREVIATIONS } = require("./_utils");
+
 /**
  * Normalize Vietnamese text to NFC form to ensure consistent representation of characters with diacritics
  * This is important for Vietnamese text because it can be represented in multiple ways (e.g., using combining characters or precomposed characters). Normalizing to NFC form ensures that all characters are represented in a consistent way, which can improve the quality of text processing and embedding.
@@ -14,32 +16,7 @@ const normalizeVietnamese = (text) => {
  * This is particularly useful in job descriptions where abbreviations are common. By expanding these abbreviations, we can improve the quality of the text for embedding and search.
  * The list can be expanded based on the specific domain and common usage in the job postings being processed.
  */
-const VIETNAMESE_ABBREVIATIONS = {
-  tv: "thành viên",
-  ko: "không",
-  dc: "được",
-  đc: "được",
-  đk: "đăng ký",
-  cs: "có",
-  đt: "đào tạo",
-  kn: "kinh nghiệm",
-  nv: "nhân viên",
-  cty: "công ty",
-  tuyển: "tuyển dụng",
-  offer: "đề nghị",
-  nlđ: "người lao động",
-  ql: "quản lý",
-  tl: "trưởng phòng",
-  pql: "phó quản lý",
-  gd: "giám đốc",
-  pgd: "phó giám đốc",
-  tp: "trưởng phòng",
-  ptp: "phó trưởng phòng",
-  hc: "hành chính",
-  bh: "bảo hiểm",
-  bhxh: "bảo hiểm xã hội",
-  bhyt: "bảo hiểm y tế",
-};
+
 
 /**
  * Handle common Vietnamese abbreviations by replacing them with their full forms. This can help improve the quality of the text for embedding and search.
@@ -52,7 +29,7 @@ const handleAbbreviations = (text) => {
   if (typeof text !== "string") return text;
 
   // Sắp xếp từ điển từ dài đến ngắn để tránh thay thế nhầm (VD: bhxh trước bh)
-  const sortedAbbrs = Object.entries(VIETNAMESE_ABBREVIATIONS).sort(
+  const sortedAbbrs = Object.entries(ABBREVIATIONS).sort(
     (a, b) => b[0].length - a[0].length,
   );
 
@@ -79,28 +56,7 @@ const handleAbbreviations = (text) => {
  * The list can be expanded based on the specific domain and common usage in the job postings being processed.
  */
 
-const VIETNAMESE_STOP_WORDS = [
-  "và",
-  "là",
-  "của",
-  "có",
-  "cho",
-  "được",
-  "để",
-  "trong",
-  "với",
-  "những",
-  "một",
-  "này",
-  "đó",
-  "như",
-  "từ",
-  "đến",
-  "bởi",
-  "vì",
-  "nhưng",
-  // Add more stop words as needed
-];
+
 /**
  *
  * @param {*} text
@@ -110,7 +66,7 @@ const removeStopWords = (text) => {
   if (typeof text !== "string") return text;
 
   //merge stop words into a regex pattern for efficient replacement
-  const pattern = `\\b (${VIETNAMESE_STOP_WORDS.join("|")}) \\b`;
+  const pattern = `\\b (${STOP_WORDS.join("|")}) \\b`;
   const regex = new RegExp(pattern, "gi");
 
   // Replace stop words with an empty string, then reduce multiple spaces to a single space and trim the result
