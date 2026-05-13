@@ -2,8 +2,9 @@ const prisma = require("../config/prisma");
 const path = require("path");
 const fs = require("fs");
 const sharp = require("sharp");
+const process = require("process");
 
-const LOGO_DIR = path.join(__dirname, "../uploads/logos");
+const LOGO_DIR = path.join(process.cwd(), "uploads", "logos");
 if (!fs.existsSync(LOGO_DIR)) {
   fs.mkdirSync(LOGO_DIR, { recursive: true });
 }

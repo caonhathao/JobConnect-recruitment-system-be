@@ -121,7 +121,6 @@ exports.createJob = async (userId, data) => {
           where: { id: job.id },
           data: { vectorStatus: "FAILED" },
         });
-        throw err;
       }
     });
   }

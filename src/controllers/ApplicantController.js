@@ -25,7 +25,8 @@ exports.getAllApplicants = async (req, res) => {
 exports.getApplicantsByJob = async (req, res) => {
     try {
         const data = await ApplicantService.getApplicantsByJob(req.user.id, req.params.jobId);
-        return res.status(200).json({ status: 'success', count: data.length, data });
+        const apps = data.applications ?? [];
+        return res.status(200).json({ status: 'success', count: apps.length, data: apps });
     } catch (error) {
         return handleError(res, error, 'lấy ứng viên theo job');
     }
@@ -69,5 +70,15 @@ exports.updateApplicationStatus = async (req, res) => {
         return res.status(200).json({ message: 'Cập nhật trạng thái hồ sơ thành công.', data });
     } catch (error) {
         return handleError(res, error, 'cập nhật trạng thái hồ sơ');
+    }
+};
+
+// DELETE /api/employer/applicants/:applicationId
+exports.deleteApplication = async (req, res) => {
+    try {
+        await ApplicantService.deleteApplication(req.user.id, req.params.applicationId);
+        return res.status(200).json({ message: 'Xóa đơn ứng tuyển thành công.' });
+    } catch (error) {
+        return handleError(res, error, 'xóa đơn ứng tuyển');
     }
 };

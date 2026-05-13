@@ -1,5 +1,5 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { ROLES } = require('../constants/roles');
 const ApplicantController = require('../controllers/ApplicantController');
@@ -33,5 +33,11 @@ router.get('/:applicationId/cv',                     ApplicantController.getCvFi
  * @body    { status: string, note?: string }
  */
 router.patch('/:applicationId/status',               ApplicantController.updateApplicationStatus);
+
+/**
+ * @route   DELETE /api/employer/applicants/:applicationId
+ * @desc    Xóa đơn ứng tuyển
+ */
+router.delete('/:applicationId',                      ApplicantController.deleteApplication);
 
 module.exports = router;
