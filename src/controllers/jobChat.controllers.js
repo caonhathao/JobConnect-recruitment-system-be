@@ -8,20 +8,22 @@ const prisma = require("../config/prisma");
  */
 exports.chat = async (req, res) => {
   const userId = req.user.id;
-  const { question, resumeId } = req.body;
+  const { question } = req.body;
   //console.log("Received question:", question);
-  const ans = await jobChatService.chat(question, userId, resumeId);
+  const ans = await jobChatService.chat(question, userId);
+  console.log("Answer:", ans);
 
-  //storing question and answer to database
-  await prisma.userChat.create({
-    data: {
-      userId: userId,
-      question: question,
-      answer: ans ?? "",
-    },
-  });
+  if (ans.type === "SUCCESS")
+    //storing question and answer to database
+    await prisma.userChat.create({
+      data: {
+        userId: userId,
+        question: question,
+        answer: ans.message ?? "",
+      },
+    });
 
-  return res.status(200).json({ ans });
+  return res.status(200).json(ans);
 };
 
 /**

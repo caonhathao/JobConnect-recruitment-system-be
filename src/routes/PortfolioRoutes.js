@@ -9,8 +9,15 @@ const { protect } = require('../middleware/authMiddleware');
 router.use(protect);
 
 // ==============================================================================
-// 1. ROUTES ĐỌC THÔNG TIN (READ) - Per API.md
+// 1. ROUTES ĐỌC THÔNG TIN (READ)
 // ==============================================================================
+
+/**
+ * @route   GET /api/portfolio
+ * @desc    Lấy toàn bộ hồ sơ (bao gồm experiences, educations, skills)
+ * @access  Private (Yêu cầu đăng nhập)
+ */
+router.get('/', PortfolioController.getFullProfile);
 
 /**
  * @route   GET /api/portfolio/experiences
@@ -34,19 +41,43 @@ router.get('/educations', PortfolioController.getEducations);
 router.get('/skills', PortfolioController.getSkills);
 
 // ==============================================================================
-// 2. ROUTES QUẢN LÝ KINH NGHIỆM (EXPERIENCE) - Per API.md
+// 2. ROUTES QUẢN LÝ KINH NGHIỆM (EXPERIENCE)
 // ==============================================================================
 
 /**
  * @route   POST /api/portfolio/experiences
  * @desc    Thêm kinh nghiệm mới
- * @body    { company, title, startDate, endDate?, description? }
+ * @body    { company_name, position, start_date, end_date?, description? }
  * @access  Private
  */
 router.post('/experiences', PortfolioController.createExperience);
 
+/**
+ * @route   PUT /api/portfolio/experiences/:id
+ * @desc    Cập nhật kinh nghiệm
+ * @params  id - ID của kinh nghiệm
+ * @body    { company_name?, position?, start_date?, end_date?, description? }
+ * @access  Private
+ */
+router.put('/experiences/:id', PortfolioController.updateExperience);
+
+/**
+ * @route   DELETE /api/portfolio/experiences/:id
+ * @desc    Xóa một kinh nghiệm
+ * @params  id - ID của kinh nghiệm
+ * @access  Private
+ */
+router.delete('/experiences/:id', PortfolioController.deleteExperience);
+
+/**
+ * @route   DELETE /api/portfolio/experiences
+ * @desc    Xóa tất cả kinh nghiệm (cẩn thận!)
+ * @access  Private
+ */
+router.delete('/experiences', PortfolioController.deleteAllExperiences);
+
 // ==============================================================================
-// 3. ROUTES QUẢN LÝ HỌC VẤN (EDUCATION) - Per API.md
+// 3. ROUTES QUẢN LÝ HỌC VẤN (EDUCATION)
 // ==============================================================================
 
 /**
@@ -56,18 +87,32 @@ router.post('/experiences', PortfolioController.createExperience);
  * @access  Private
  */
 router.post('/educations', PortfolioController.createEducation);
+router.put('/educations/:id', PortfolioController.updateEducation);
+router.delete('/educations/:id', PortfolioController.deleteEducation);
 
 // ==============================================================================
-// 4. ROUTES QUẢN LÝ KỸ NĂNG (SKILLS) - Per API.md
+// 4. ROUTES QUẢN LÝ KỸ NĂNG (SKILLS)
 // ==============================================================================
 
 /**
  * @route   PUT /api/portfolio/skills
- * @desc    Cập nhật toàn bộ danh sách kỹ năng (thay thế hoàn toàn)
- * @body    { skills: ["JavaScript", "Node.js", "React"] }
+ * @desc    Cập nhật toàn bộ danh sách kỹ năng
+ * @body    { skills: ["JavaScript", "Node.js"] }
  * @access  Private
- * @note    Sử dụng PUT vì thao tác này thay thế toàn bộ danh sách
  */
 router.put('/skills', PortfolioController.updateSkills);
+
+/**
+ * @route   DELETE /api/portfolio/skills/:id
+ * @desc    Xóa một kỹ năng
+ * @access  Private
+ */
+router.delete('/skills/:id', PortfolioController.deleteSkill);
+// /**
+//  * @route   DELETE /api/portfolio/skills
+//  * @desc    Xóa tất cả kỹ năng (cẩn thận!)
+//  * @access  Private
+//  */
+// router.delete('/skills', PortfolioController.deleteAllSkills);
 
 module.exports = router;

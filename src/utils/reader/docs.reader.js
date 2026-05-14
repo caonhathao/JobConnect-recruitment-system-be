@@ -11,7 +11,7 @@ const process = require("process");
  * @returns {Promise<string>}
  */
 async function pdfReader(filePath) {
-  const fullPath = path.resolve(process.cwd(), filePath);
+  const fullPath = path.join(process.cwd(), filePath);
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Không tìm thấy file tại: ${fullPath}`);
   }

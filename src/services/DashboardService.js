@@ -32,7 +32,7 @@ exports.getDashboard = async (userId) => {
     }
 
     const allApps = await prisma.application.findMany({
-        where: { jobId: { in: jobIds } },
+        where: { jobId: { in: jobIds }, isDeleted: false },
         select: { id: true, status: true, createdAt: true }
     });
 
@@ -51,7 +51,7 @@ exports.getDashboard = async (userId) => {
         : '0%';
 
     const recent = await prisma.application.findMany({
-        where: { jobId: { in: jobIds } },
+        where: { jobId: { in: jobIds }, isDeleted: false },
         include: {
             user: { select: { fullName: true, email: true, avatarUrl: true } },
             job: { select: { title: true } }
@@ -71,7 +71,8 @@ exports.getDashboard = async (userId) => {
             status: a.status,
             appliedAt: a.createdAt,
             candidate: { fullName: a.user?.fullName, email: a.user?.email, avatarUrl: a.user?.avatarUrl },
-            jobTitle: a.job?.title
+            jobTitle: a.job?.title,
+            isDeleted: a.isDeleted
         }))
     };
 };

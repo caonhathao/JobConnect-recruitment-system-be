@@ -6,7 +6,7 @@ const seedCandidates = async (users) => {
     const profiles = [];
     const experiences = [];
     const educations = [];
-    const skills = [];
+    // const skills = [];
     const candidateSkills = [];
 
     // Create or get skills first

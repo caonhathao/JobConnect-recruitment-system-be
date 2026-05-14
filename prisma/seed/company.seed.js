@@ -5,7 +5,6 @@ const seedCompanies = async (users) => {
     const recruiters = users.filter(u => u.role === 'recruiter');
     const companies = [];
     const jobs = [];
-    const jobSkills = [];
 
     // Create companies for each recruiter
     for (const user of recruiters) {

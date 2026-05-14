@@ -1,4 +1,5 @@
 const { Ollama } = require("ollama");
+const { TYPE, messageResponse } = require("../../utils/format/response.format");
 
 //create new connection to ollama server at localhost:11434
 const ollama = new Ollama({
@@ -71,10 +72,13 @@ async function textGeneration(prompt, template) {
         num_ctx: 8192,
       },
     });
-    return response.message.content;
+    return messageResponse(TYPE.success, response.message.content);
   } catch (error) {
     console.error("Lỗi khi gọi Ollama API:", error);
-    return "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.";
+    return messageResponse(
+      TYPE.failed,
+      "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
+    );
   }
 }
 

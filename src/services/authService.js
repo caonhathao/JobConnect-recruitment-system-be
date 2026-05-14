@@ -64,60 +64,57 @@ exports.register = async (data) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    try {
-        const result = await prisma.$transaction(async (tx) => {
-            const user = await tx.user.create({
-                data: {
-                    email,
-                    phone,
-                    password: hashedPassword,
-                    fullName,
-                    role
-                }
-            });
-
-            if (role === ROLES.CANDIDATE) {
-                await tx.candidate_profile.create({
-                    data: {
-                        userId: user.id
-                    }
-                });
+    // FIX 1: Bỏ try/catch thừa (no-useless-catch)
+    const result = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+            data: {
+                email,
+                phone,
+                password: hashedPassword,
+                fullName,
+                role
             }
-
-            if (role === ROLES.RECRUITER) {
-                await tx.company.create({
-                    data: {
-                        userId: user.id,
-                        name: companyName,
-                        address: address,
-                        status: 'pending'
-                    }
-                });
-            }
-
-            const accessToken = generateAccessToken(user.id, user.role);
-            const refreshToken = generateRefreshToken(user.id);
-
-            await tx.user.update({
-                where: { id: user.id },
-                data: { refreshToken }
-            });
-
-            return {
-                id: user.id,
-                email: user.email,
-                phone: user.phone,
-                fullName: user.fullName,
-                role: user.role,
-                accessToken,
-                refreshToken
-            };
         });
 
-        return result;
-    } catch (error) {
-        throw error;
-    }
+        if (role === ROLES.CANDIDATE) {
+            await tx.candidate_profile.create({
+                data: {
+                    userId: user.id
+                }
+            });
+        }
+
+        if (role === ROLES.RECRUITER) {
+            await tx.company.create({
+                data: {
+                    userId: user.id,
+                    name: companyName,
+                    address: address,
+                    status: 'pending'
+                }
+            });
+        }
+
+        const accessToken = generateAccessToken(user.id, user.role);
+        const refreshToken = generateRefreshToken(user.id);
+
+        await tx.user.update({
+            where: { id: user.id },
+            data: { refreshToken }
+        });
+
+        return {
+            id: user.id,
+            email: user.email,
+            phone: user.phone,
+            fullName: user.fullName,
+            role: user.role,
+            accessToken,
+            refreshToken
+        };
+    });
+
+    return result;
 };
 
 exports.login = async ({ email, password }) => {
@@ -162,7 +159,7 @@ exports.refreshToken = async (refreshToken) => {
 
         return generateAccessToken(user.id, user.role);
     } catch (error) {
-        throw new Error('Refresh token không hợp lệ');
+        throw new Error('Refresh token không hợp lệ', { cause: error });
     }
 };
 

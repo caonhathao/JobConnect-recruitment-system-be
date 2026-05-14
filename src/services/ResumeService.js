@@ -2,8 +2,9 @@ const prisma = require("../config/prisma");
 const path = require("path");
 const fs = require("fs");
 const ResumeVectorService = require("./resumeVector.services");
+const process = require("process");
 
-const UPLOAD_DIR = path.join(__dirname, "../uploads/resumes");
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "resumes");
 
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -46,7 +47,6 @@ exports.uploadResume = async (userId, file) => {
           where: { id: resume.id },
           data: { vectorStatus: "FAILED" },
         });
-        throw err;
       }
     });
   }
@@ -95,7 +95,7 @@ exports.deleteResume = async (userId, resumeId) => {
     throw new Error("Không tìm thấy CV hoặc bạn không có quyền xóa.");
   }
 
-  const filePath = path.join(__dirname, "..", resume.fileUrl);
+  const filePath = path.join(process.cwd(), resume.fileUrl);
   if (fs.existsSync(filePath)) {
     try {
       fs.unlinkSync(filePath);
@@ -129,7 +129,7 @@ exports.getFilePath = async (userId, resumeId) => {
   if (!resume) {
     throw new Error("Không tìm thấy CV hoặc bạn không có quyền xem.");
   }
-  const filePath = path.join(__dirname, "..", resume.fileUrl);
+  const filePath = path.join(process.cwd(), resume.fileUrl);
   if (!fs.existsSync(filePath)) {
     throw new Error("File CV không tồn tại trên server.");
   }
