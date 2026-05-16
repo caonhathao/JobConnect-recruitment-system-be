@@ -4,6 +4,19 @@ Base URL: `http://localhost:3000`
 
 All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Prisma).
 
+**Response Standard:**
+- **Success (Controller layer):** `{ status: 'success', data: {...} }` or `{ status: 'success', message: '...', data: {...} }`. Some endpoints return `{ message: '...', data: {...} }` without `status` (e.g., portfolio creation, application submission, logout).
+- **Error (Controller layer):** `{ message: '...' }` or `{ status: 'error', message: '...' }`
+- **Chat/LLM layer (messageResponse util):** `{ type: 'SUCCESS'|'FAILED', message: '...', [data]?: {...} }` — `data` is omitted when empty
+
+**Null Handling Notes:**
+- `companyCity`, `companyAddress`: These fields come from raw SQL queries with `??` fallback — may be `null` or `undefined`. API consumers should handle with `??` or `||`.
+- `logoUrl`, `avatarUrl`: May be `null` if not set.
+- `deadline`: May be `null` (no deadline = job open indefinitely).
+- `dateOfBirth`, `gender`, `headline`, `summary`, `linkedinUrl`, `address`, `city`: May be `null` in candidate profile.
+- `rejectionReason`: May be `null` if company/job not rejected.
+- `coverLetter`: May be `null` if not provided.
+
 ---
 
 ## 1. Authentication (Auth)
@@ -17,6 +30,8 @@ All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Pri
 
 ### POST /api/auth/register
 
+**Service:** `authService.register(data)`
+
 **Request Body:**
 ```json
 {
@@ -29,6 +44,16 @@ All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Pri
 }
 ```
 `companyName` and `address` are optional — include both to register as Recruiter, omit for Candidate.
+
+**Validation** (in service layer):
+| Field | Rule |
+|-------|------|
+| email | Regex `/^[a-zA-Z0-9.]+@gmail\.com$/` |
+| password | Min 6 characters |
+| phone | Regex `/^0\d{9}$/` (10 digits, starts with 0) |
+| fullName | 2–50 chars, only letters + spaces, regex `/^[a-zA-ZÀ-ỹ\s]+$/` |
+| companyName | Required if address provided |
+| address | Required if companyName provided |
 
 **Success (201):**
 ```json
@@ -48,12 +73,11 @@ All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Pri
 
 ### POST /api/auth/login
 
+**Service:** `authService.login({ email, password })`
+
 **Request Body:**
 ```json
-{
-  "email": "abc@gmail.com",
-  "password": "123456"
-}
+{ "email": "abc@gmail.com", "password": "123456" }
 ```
 
 **Success (200):**
@@ -75,14 +99,15 @@ All ID fields use **UUID** format (`String @id @default(uuid()) @db.Uuid` in Pri
 
 ### POST /api/auth/refresh-token
 
-**Request Body:**
-```json
-{ "refreshToken": "eyJ..." }
-```
+**Service:** `authService.refreshToken(refreshToken)`
+
+**Request Body:** `{ "refreshToken": "eyJ..." }`
 
 **Success (200):** `{ "accessToken": "eyJ..." }`
 
 ### POST /api/auth/logout
+
+**Service:** `authService.logout(user)` — Sets `refreshToken = null` in DB.
 
 **Headers:** `Authorization: Bearer <accessToken>`
 
@@ -111,15 +136,14 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 
 **GET /api/candidate/profile**
 
+**Service:** `candidateService.getProfile(userId)`
+
 **Success (200):**
 ```json
 {
   "status": "success",
   "data": {
-    "id": "UUID",
-    "userId": "UUID",
     "fullName": "Nguyễn Văn A",
-    "email": "abc@gmail.com",
     "phone": "0901234567",
     "role": "candidate",
     "avatarUrl": "uploads/avatars/...",
@@ -129,7 +153,6 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
     "city": "Hồ Chí Minh",
     "dateOfBirth": "2000-01-01T00:00:00.000Z",
     "gender": "male",
-    "linkedinUrl": "https://linkedin.com/in/...",
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z"
   }
@@ -137,6 +160,8 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 ```
 
 **PUT /api/candidate/profile**
+
+**Service:** `candidateService.updateProfile(userId, data)`
 
 **Request Body:**
 ```json
@@ -152,6 +177,7 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
   "linkedinUrl": "https://linkedin.com/in/..."
 }
 ```
+`linkedinUrl` is optional. Must start with `https://` if provided.
 
 ### 2.2 Avatar
 
@@ -160,7 +186,11 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 | PUT | `/api/avatar` | Upload or update avatar |
 | DELETE | `/api/avatar` | Delete avatar |
 
-**PUT /api/avatar** — Form-data: `avatar` (image file, max 5MB, JPG/PNG/WEBP)
+**Service:** `avatarService.updateAvatar(userId, fileBuffer)` / `avatarService.deleteAvatar(userId)`
+
+**Auth:** Bearer Token only (no role restriction — any authenticated user can manage their avatar).
+
+**PUT /api/avatar** — Form-data: `avatar` (image file, max 5MB, JPG/PNG/WEBP). Processed with Sharp → 500×500 WebP 80%.
 
 **Success (200):**
 ```json
@@ -175,6 +205,10 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 
 ### 2.3 Portfolio (Experiences, Education, Skills)
 
+**Service:** `PortfolioService` — all methods.
+
+**Auth:** Bearer Token, Any authenticated user (no role restriction — uses `router.use(protect)` only).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/portfolio/experiences` | List experiences |
@@ -182,11 +216,10 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 | GET | `/api/portfolio/educations` | List education |
 | POST | `/api/portfolio/educations` | Add education |
 | GET | `/api/portfolio/skills` | List skills |
-| PUT | `/api/portfolio/skills` | Replace all skills |
+| PUT | `/api/portfolio/skills` | Replace all skills (upsert) |
 
 **POST /api/portfolio/experiences**
 
-**Request Body:**
 ```json
 {
   "company": "ABC Corp",
@@ -197,9 +230,10 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 }
 ```
 
+**Success (201):** `{ "message": "Thêm kinh nghiệm thành công", "data": { ... } }`
+
 **POST /api/portfolio/educations**
 
-**Request Body:**
 ```json
 {
   "school": "Đại học ABC",
@@ -210,14 +244,21 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 }
 ```
 
+**Success (201):** `{ "message": "Thêm học vấn thành công", "data": { ... } }`
+
 **PUT /api/portfolio/skills**
 
-**Request Body:**
 ```json
 { "skills": ["JavaScript", "Node.js", "React"] }
 ```
 
+**Success (200):** `{ "status": "success", "message": "Cập nhật kỹ năng thành công", "data": [...] }`
+
+Skills are upserted by name (case-insensitive unique). Old skills are replaced entirely.
+
 ### 2.4 Resumes (CV)
+
+**Service:** `ResumeService` — all methods.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -226,7 +267,9 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 | PATCH | `/api/resumes/:id/default` | Set CV as default |
 | DELETE | `/api/resumes/:id` | Delete a CV |
 
-**POST /api/resumes/upload** — Form-data: `cv` (PDF file, max 5MB, max 3 CVs per user)
+**POST /api/resumes/upload** — Form-data: `cv` (PDF file, max 5MB, max 3 CVs per user). First CV is auto-set as default.
+
+**Vector Processing (Background):** After upload, CV text is extracted via `pdfReader`, cleaned, chunked (300 chars, 50 overlap), and embedded via HuggingFace → stored in `resume_vectors` table with `vectorStatus: COMPLETED|FAILED`.
 
 **Success (201):**
 ```json
@@ -242,28 +285,44 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
 }
 ```
 
-**PATCH /api/resumes/:id/default** — **Success (200):** `{ "status": "success", "message": "Đặt CV mặc định thành công", "data": {...} }`
+**GET /api/resumes** — Returns list of CVs ordered by `isDefault DESC`, `createdAt DESC`.
 
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "UUID",
+      "title": "CV_NguyenVanA.pdf",
+      "fileUrl": "uploads/resumes/...",
+      "isDefault": true,
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+**PATCH /api/resumes/:id/default** — **Success (200):** `{ "status": "success", "message": "Đặt CV mặc định thành công", "data": {...} }`
 **DELETE /api/resumes/:id** — **Success (200):** `{ "status": "success", "message": "Xóa CV thành công" }`
 
 ### 2.5 Applications
 
+**Service:** `ApplicationService` — all methods.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/applications` | Apply for a job |
-| GET | `/api/applications` | List own applications |
+| GET | `/api/applications` | List own applications (paginated) |
+| GET | `/api/applications/:id` | Application detail |
+| DELETE | `/api/applications/:id` | Withdraw application (soft delete, only if `submitted`) |
+| DELETE | `/api/applications/:id/rejected` | Delete rejected application (soft delete) |
 
-**POST /api/applications**
+**POST /api/applications** — `ApplicationService.applyJob(userId, { jobId, resumeId?, coverLetter? })`
 
-**Request Body:**
-```json
-{
-  "jobId": "UUID",
-  "resumeId": "UUID",
-  "coverLetter": "Tôi rất quan tâm đến vị trí này..."
-}
-```
-`resumeId` is optional (uses default CV if omitted).
+`resumeId` is optional (uses default CV if omitted). `coverLetter` is optional.
+
+**Validation:** Job must be `approved` + `deadline` not expired. Duplicate application check (userId + jobId). Also stores user's `fullName`, `email`, `phone` and job's `companyId` on the application record.
 
 **Success (201):**
 ```json
@@ -271,20 +330,66 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `CANDIDATE`.
   "message": "Nộp đơn ứng tuyển thành công!",
   "data": {
     "id": "UUID",
-    "status": "submitted",
-    "jobId": "UUID",
     "userId": "UUID",
+    "jobId": "UUID",
+    "companyId": "UUID",
+    "fullName": "Nguyễn Văn A",
+    "email": "abc@gmail.com",
+    "phone": "0901234567",
     "resumeUrl": "uploads/resumes/...",
-    "createdAt": "2025-01-01T00:00:00.000Z"
+    "coverLetter": null,
+    "status": "submitted",
+    "isDeleted": false,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
   }
 }
 ```
 
+**GET /api/applications** — Query: `?status=submitted&page=1&limit=10`
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "count": 1,
+  "data": {
+    "total_items": 1,
+    "total_pages": 1,
+    "current_page": 1,
+    "applications": [{
+      "id": "UUID",
+      "status": "submitted",
+      "coverLetter": null,
+      "resumeUrl": "uploads/resumes/...",
+      "appliedAt": "2025-01-01T00:00:00.000Z",
+      "job": {
+        "id": "UUID",
+        "title": "NodeJS Developer",
+        "location": "HCM",
+        "jobType": "Full-time",
+        "salaryMin": 1000,
+        "salaryMax": 2000,
+        "deadline": "2026-12-31T00:00:00.000Z",
+        "company": { "name": "ABC Corp", "logoUrl": "uploads/logos/..." }
+      }
+    }]
+  }
+}
+```
+
+**GET /api/applications/:id** — `ApplicationService.getApplicationDetail(userId, applicationId)`
+
+**DELETE /api/applications/:id** — Only allowed when `status === 'submitted'`. Soft-deletes via `isDeleted: true`.
+**DELETE /api/applications/:id/rejected** — Only allowed when `status === 'rejected'`.
+
 ### 2.6 Bookmarks
+
+**Service:** `BookmarkService` — all methods.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/bookmarks` | List bookmarked jobs |
+| GET | `/api/bookmarks` | List bookmarked jobs (paginated) |
 | POST | `/api/bookmarks/:jobId` | Toggle bookmark (save/unsave) |
 
 **POST /api/bookmarks/:jobId** — Toggle. Returns:
@@ -296,11 +401,47 @@ or
 { "bookmarked": false, "message": "Đã bỏ lưu tin tuyển dụng." }
 ```
 
-### 2.7 Job Suggestions (AI)
+**GET /api/bookmarks** — `BookmarkService.getBookmarks(userId, { limit, page })`
+
+```json
+{
+  "total_items": 5,
+  "total_pages": 1,
+  "current_page": 1,
+  "bookmarks": [{
+    "bookmarkId": "UUID",
+    "savedAt": "2025-01-01T00:00:00.000Z",
+    "job": {
+      "id": "UUID",
+      "title": "NodeJS Developer",
+      "location": "HCM",
+      "jobType": "Full-time",
+      "salaryMin": 1000,
+      "salaryMax": 2000,
+      "deadline": "2026-12-31T00:00:00.000Z",
+      "status": "approved",
+      "company": { "name": "ABC Corp", "logoUrl": "uploads/logos/...", "city": "Hồ Chí Minh" }
+    }
+  }]
+}
+```
+
+### 2.7 Job Suggestions (Skill-based Matching)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/suggestions?limit=10` | AI-suggested jobs based on resume vector matching |
+| GET | `/api/suggestions?limit=10` | Skill-based job suggestions |
+
+**Auth:** Bearer Token, No Role restriction (uses `userId` from token to find candidate skills).
+
+**Service:** `JobSuggestionService.getJobSuggestions(userId, limit)`
+
+**Algorithm:**
+1. Fetch candidate's skills from `candidate_skills`
+2. Exclude already-applied jobs
+3. If no skills → return latest approved jobs (sorted by `createdAt DESC`)
+4. If skills exist → find jobs with matching skills, compute `matchPercent` = `(matchedSkillCount / candidateSkillCount) × 100`, sort by match count DESC
+5. Limit: max 50, default 10
 
 **Success (200):**
 ```json
@@ -313,44 +454,201 @@ or
       "title": "NodeJS Developer",
       "location": "HCM",
       "jobType": "Full-time",
+      "jobLevel": "Junior",
+      "benefits": "...",
+      "description": "...",
+      "requirements": "...",
+      "skills": [{ "id": "uuid", "name": "NodeJS" }],
       "salaryMin": 1000,
-      "company": { ... },
-      "skills": ["NodeJS", "Express"],
-      "similarityScore": 0.92
+      "salaryMax": 2000,
+      "deadline": "2026-12-31T00:00:00.000Z",
+      "company": { "name": "ABC Corp", "logoUrl": "uploads/logos/...", "city": "HCM" },
+      "matchedSkills": ["NodeJS"],
+      "matchCount": 1,
+      "matchPercent": 50
     }
   ]
 }
 ```
 
-### 2.8 Job Chat (AI Assistant)
+### 2.8 Job Chat & Vector Search (AI Assistant — RAG-powered)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/chat/chat` | Ask a question about jobs |
+| POST | `/api/chat/chat` | Ask a question about jobs (RAG-based) |
 | GET | `/api/chat-history/chat-history` | Get chat history |
+| GET | `/api/public/job-suggestions` | Vector-based job search by filters (public, no auth) |
 
-**Auth:** Bearer Token, Role: `CANDIDATE`
+**Auth:** Bearer Token, Role: `CANDIDATE` (for chat and chat-history). The `/api/public/job-suggestions` endpoint requires no auth (public).
 
-**POST /api/chat/chat**
+**Response Format (all RAG endpoints use messageResponse):**
+```json
+{ "type": "SUCCESS", "message": "...", [data]?: { ... } }
+```
+
+---
+
+#### POST /api/chat/chat
+
+**Service:** `suggestion.services.js` → `chat(question, userId)`
+
+**Controller:** `suggestion.controller.js` → `chat` — stores Q&A in `userChat` table on SUCCESS only.
+
+**RAG Flow (Retrieval-Augmented Generation):**
+1. Fetch last 5 chat history entries for context
+2. LLM (Qwen 2.5 3B via Ollama) classifies question into a **group** (1–5):
+   - **Group 1 (JOB_SEARCH):** General job search → `_handleJobSearch()`
+   - **Group 2 (CV_MATCH):** Search by CV similarity → `_handleJobSearchByCV()`
+   - **Group 3 (COMPARISON):** Compare entities (jobs/companies/CV vs job) → `_handleComparison()`
+   - **Group 4 (COMPANY_RESEARCH):** Research company/job info → `_handleResearch()`
+   - **Group 5 (GREETING):** General greeting → `_handleGreeting()`
+3. Each handler:
+   - Converts question to **vector embedding** via HuggingFace API (`paraphrase-multilingual-MiniLM-L12-v2`, 384-dim)
+   - Performs **semantic search** on `job_vectors` using `pgvector` `<=>` cosine similarity with `MIN_SIMILARITY_SCORE` (default 0.3)
+   - Packages results + original question into a prompt
+   - Sends to **Qwen 2.5 3B** (Ollama, `http://localhost:11434`)
+   - Returns LLM-generated answer in Vietnamese
+
+**Group 1 — `_handleJobSearch(question)`:**
+- Embeds question → raw SQL with `<=>` on `job_vectors` → joins `jobs` + `companies`
+- Returns top 3 matches with `similarity` score → LLM generates natural answer
+- **Null handling:** `companyAddress ?? ""`, `companyCity ?? ""`
+
+**Group 2 — `_handleJobSearchByCV(question, userId)`:**
+- Finds user's default CV (requires `vectorStatus === 'COMPLETED'`)
+- Gets all `resume_vectors` embeddings → CROSS JOIN LATERAL against `job_vectors`
+- Returns top 5 matching jobs with similarity score → LLM generates answer
+- **Null handling:** `companyAddress ?? ""`, `companyCity ?? ""`, `job.location ?? ""`
+
+**Group 3 — `_handleComparison(question, entities, type, userId)`:**
+- **COMPANY type:** Searches companies by entity names → packages info → LLM compares
+- **JOB type:** Searches jobs by title → packages info → LLM compares
+- **CV_VS_JOB type:** Finds user's CV vectors → compares against target job vectors (threshold > 0.4) → LLM evaluates fit
+
+**Group 4 — `_handleResearch(question, type, entities)`:**
+- **COMPANY type:** Finds company by name + city → packages info → LLM answers
+- **JOB type:** Finds job by title + company name + location → packages info → LLM answers
+- **Null handling:** `company.city ?? "Không rõ"`
+
+**Group 5 — `_handleGreeting(question)`:**
+- Sends directly to LLM for conversational response
 
 **Request Body:**
 ```json
 { "question": "Tôi muốn tìm việc làm NodeJS ở HCM" }
 ```
 
-**Success (200):**
+**Success (200) — messageResponse format:**
 ```json
-{ "ans": "Tôi tìm thấy một số công việc phù hợp..." }
+{
+  "type": "SUCCESS",
+  "message": "Tôi tìm thấy một số công việc NodeJS phù hợp tại Hồ Chí Minh..."
+}
 ```
 
-**Implementation:** The backend communicates with a local **Qwen 2.5 3B** model via **Ollama** (`http://localhost:11434`). The flow:
-1. User question is cleaned and standardized via text preprocessing pipeline
-2. Question is converted to a vector embedding (HuggingFace Inference API)
-3. Semantic search finds top 3 matching jobs via `pgvector` cosine similarity (`<=>` operator)
-4. Job context is packed into a prompt sent to the local Ollama Qwen 2.5 3B model
-5. Response is returned in Vietnamese
+**Error Response:**
+```json
+{
+  "type": "FAILED",
+  "message": "Xin lỗi, tôi không tìm thấy thông tin nào liên quan đến câu hỏi của bạn."
+}
+```
 
-**GET /api/chat-history/chat-history** — Returns all prior Q&A for the user.
+---
+
+#### GET /api/chat-history/chat-history
+
+**Service:** `suggestion.services.js` → `history(userId)`
+
+**Controller:** `suggestion.controller.js` → `chatHistory`
+
+Returns all past Q&A sessions for the authenticated candidate (ordered by `createdAt DESC`).
+
+**Success (200):**
+```json
+{
+  "history": [
+    {
+      "id": "UUID",
+      "userId": "UUID",
+      "question": "Tôi muốn tìm việc NodeJS",
+      "answer": "Tôi tìm thấy...",
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /api/public/job-suggestions
+
+**Service:** `suggestion.services.js` → `getJobSuggestions(userId, filters)` — `userId` is accepted but not used (public endpoint).
+
+**Controller:** `suggestion.controller.js` → `getJobSuggestions`
+
+**Auth:** None (public). No `Authorization` header required.
+
+**Query Parameters:**
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| keyword | string | No | Search keyword |
+| location | string | No | Job location |
+| jobType | string | No | Full-time, Part-time, Contract, Internship |
+| jobLevel | string | No | Intern, Fresher, Junior, Middle, Senior, Lead, Manager |
+| salary | string | No | Minimum salary filter |
+
+**Flow:**
+1. Build prompt with filters → LLM (Qwen 2.5 3B via Ollama) refines the search query
+2. Clean via `cleaningText()` + standardize via `textStandardization()` → embed via HuggingFace API
+3. Embedding string converted: `` ${JSON.stringify(embedding)} `` → semantic search on `job_vectors` using `<=>` cosine similarity (threshold `MIN_SIMILARITY_SCORE`, default 0.3)
+4. Fetch full job details with company + skills for matching IDs
+5. Return via `messageResponse` wrapped in `{ suggestions: { ... } }`
+
+**Success (200):**
+```json
+{
+  "suggestions": {
+    "type": "SUCCESS",
+    "message": "Đây là những công việc phù hợp với yêu cầu của bạn:",
+    "data": {
+      "jobs": [
+        {
+          "id": "UUID",
+          "title": "NodeJS Developer",
+          "location": "HCM",
+          "jobType": "Full-time",
+          "jobLevel": "Junior",
+          "benefits": "...",
+          "description": "...",
+          "requirements": "...",
+          "skills": [{ "id": "uuid", "skill": { "id": "uuid", "name": "NodeJS" } }],
+          "salaryMin": 1000,
+          "salaryMax": 2000,
+          "deadline": "2026-12-31T00:00:00.000Z",
+          "company": {
+            "id": "UUID",
+            "name": "ABC Corp",
+            "logoUrl": "uploads/logos/...",
+            "city": "HCM",
+            "address": "123 Street"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Error (200 — messageResponse):**
+```json
+{
+  "suggestions": {
+    "type": "FAILED",
+    "message": "Xin lỗi, tôi không tìm thấy công việc nào phù hợp với yêu cầu của bạn..."
+  }
+}
+```
 
 ---
 
@@ -360,14 +658,16 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
 
 ### 3.1 Company Profile
 
+**Service:** `EmployerService` — all methods.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/employer/profile` | Get company profile |
-| PUT | `/api/employer/profile` | Update company profile |
+| PUT | `/api/employer/profile` | Update or create company profile |
 | PUT | `/api/employer/logo` | Upload company logo |
 | DELETE | `/api/employer/logo` | Delete company logo |
 
-**GET /api/employer/profile**
+**GET /api/employer/profile** — `EmployerService.getMyCompany(userId)`
 
 **Success (200):**
 ```json
@@ -394,9 +694,10 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
 }
 ```
 
-**PUT /api/employer/profile**
+**PUT /api/employer/profile** — `EmployerService.updateCompany(userId, data)`
 
-**Request Body:**
+If company doesn't exist → creates with `status: 'pending'`. If exists → updates with `status: 'pending'` (resets `rejectionReason`).
+
 ```json
 {
   "name": "ABC Corp",
@@ -408,17 +709,38 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
 }
 ```
 
-**PUT /api/employer/logo** — Form-data: `logo` (image, max 5MB). **DELETE /api/employer/logo** — no body.
+**Success (200):**
+```json
+{
+  "status": "success",
+  "message": "Cập nhật hồ sơ công ty thành công! Đang chờ Admin duyệt lại.",
+  "data": { "id": "UUID", "name": "ABC Corp", "status": "pending", ... }
+}
+```
+
+**PUT /api/employer/logo** — Form-data: `logo` (image, max 5MB). Sharp → 300×300 WebP 80%.
+**DELETE /api/employer/logo** — Deletes logo file + sets `logoUrl = null` in DB.
 
 ### 3.2 Job Management
+
+**Service:** `JobManagementService` — all methods.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/employer/jobs` | Post a new job (status: pending) |
-| GET | `/api/employer/jobs?status=pending\|approved\|rejected\|paused` | List own jobs |
+| GET | `/api/employer/jobs` | List own jobs (paginated) |
+| GET | `/api/employer/jobs/:id` | Get job detail |
+| PUT | `/api/employer/jobs/:id` | Update job (resets to pending if not paused) |
 | PATCH | `/api/employer/jobs/:id/toggle-pause` | Toggle pause/resume |
+| DELETE | `/api/employer/jobs/:id` | Delete own job |
 
-**POST /api/employer/jobs**
+**DELETE /api/employer/jobs/:id** — **Success (200):** `{ "message": "Xóa tin tuyển dụng thành công." }`
+
+#### POST /api/employer/jobs
+
+**Service:** `JobManagementService.createJob(userId, data)` — Requires company `status === 'approved'`.
+
+**Note:** `description`, `requirements`, `benefits`, `salaryMin`, `salaryMax`, `location`, `jobType`, `jobLevel`, `deadline`, `skills` are all optional fields (nullable). Only `title` is required.
 
 **Request Body:**
 ```json
@@ -437,6 +759,8 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
 }
 ```
 
+**Vector Processing (Background):** Job description is cleaned, chunked, embedded, and stored in `job_vectors` table (fires via `setImmediate`, not awaited). `vectorStatus` tracks: `PENDING` → `COMPLETED`|`FAILED`.
+
 **Success (201):**
 ```json
 {
@@ -450,34 +774,165 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `RECRUITER`.
 }
 ```
 
-**PATCH /api/employer/jobs/:id/toggle-pause** — Toggles `approved` ↔ `paused`.
+**PUT /api/employer/jobs/:id** — Resets status to `pending` (unless currently `paused`).
+
+**Success (200):**
+```json
+{
+  "message": "Cập nhật tin tuyển dụng thành công! Đang chờ duyệt lại.",
+  "data": { "id": "UUID", "title": "...", "status": "pending", ... }
+}
+```
+
+#### GET /api/employer/jobs
+
+**Service:** `JobManagementService.getMyJobs(userId, { status?, page?, limit? })`
+
+Query: `?status=pending|approved|rejected|paused&page=1&limit=10`
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "total_items": 10,
+    "total_pages": 1,
+    "current_page": 1,
+    "jobs": [
+    {
+      "id": "UUID",
+      "companyId": "UUID",
+      "title": "NodeJS Developer",
+      "description": "...",
+      "requirements": "...",
+      "benefits": "...",
+      "salaryMin": 1000,
+      "salaryMax": 2000,
+      "location": "HCM",
+      "jobType": "Full-time",
+      "jobLevel": "Junior",
+      "status": "pending",
+      "rejectionReason": null,
+      "deadline": "2026-12-31T00:00:00.000Z",
+      "viewsCount": 0,
+      "vectorStatus": "PENDING",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z",
+      "skills": [{ "id": "uuid", "name": "NodeJS" }]
+    }
+  ]
+  }
+}
+```
+
+#### PATCH /api/employer/jobs/:id/toggle-pause
+
+**Service:** `JobManagementService.togglePauseJob(userId, jobId)`
+
+Toggles: `approved` ↔ `paused`. Not allowed if `pending` or `rejected`.
+
+**Success (200):**
+```json
+{ "status": "paused", "message": "Đã tạm dừng tin tuyển dụng." }
+```
+or
+```json
+{ "status": "approved", "message": "Đã mở lại tin tuyển dụng." }
+```
 
 ### 3.3 Applicant Management
 
+**Service:** `ApplicantService` — all methods.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/employer/applicants?status=submitted\|under_review\|interview\|accepted\|rejected` | List all applicants |
-| GET | `/api/employer/applicants/:applicationId` | Application detail |
-| GET | `/api/employer/applicants/:applicationId/cv?mode=view\|download` | View/download CV PDF |
+| GET | `/api/employer/applicants` | List all applicants across all jobs |
+| GET | `/api/employer/applicants/:applicationId` | Application detail for recruiter |
+| GET | `/api/employer/applicants/:applicationId/cv` | View/download CV PDF (query: `?mode=view\|download`) |
 | PATCH | `/api/employer/applicants/:applicationId/status` | Update application status |
+| DELETE | `/api/employer/applicants/:applicationId` | Soft-delete an application |
+
+**GET /api/employer/applicants** — `ApplicantService.getAllApplicants(userId, { status?, page?, limit? })`
+
+Query: `?status=submitted|under_review|interview|accepted|rejected&page=1&limit=10`
+
+**Success (200):**
+```json
+{
+  "total_items": 10,
+  "total_pages": 1,
+  "current_page": 1,
+  "applications": [
+    {
+      "applicationId": "UUID",
+      "status": "submitted",
+      "resumeUrl": "uploads/resumes/...",
+      "appliedAt": "2025-01-01T00:00:00.000Z",
+      "job": { "id": "UUID", "title": "NodeJS Developer" },
+      "candidate": {
+        "id": "UUID",
+        "fullName": "Nguyễn Văn A",
+        "email": "abc@gmail.com",
+        "phone": "0901234567",
+        "avatarUrl": null,
+        "candidateProfile": {
+          "headline": "Junior Developer",
+          "summary": "...",
+          "experiences": [...],
+          "educations": [...],
+          "skills": [{ "id": "uuid", "name": "NodeJS" }]
+        }
+      }
+    }
+  ]
+}
+```
+
+**GET /api/employer/applicants/:applicationId** — `ApplicantService.getApplicationDetail(userId, applicationId)`
+
+Returns full detail including `coverLetter`, `job` info, `candidate` info with portfolio.
+
+**GET /api/employer/applicants/:applicationId/cv?mode=view|download** — `ApplicantService.getCvFile(userId, applicationId, mode)`
+
+Returns PDF file inline (`view`) or as attachment (`download`). Handles both local file paths and remote URLs.
 
 **PATCH /api/employer/applicants/:applicationId/status**
+
+**Service:** `ApplicantService.updateApplicationStatus(userId, applicationId, status)` — `note` is accepted in the request body but is not persisted to the database (service does not use it).
+
+**Status Transitions:**
+```
+submitted    → under_review | rejected
+under_review → interview     | rejected
+interview    → accepted      | rejected
+accepted     → (terminal)
+rejected     → (terminal)
+```
 
 **Request Body:**
 ```json
 {
   "status": "under_review",
-  "note": "Will schedule an interview"
+  "note": "Optional note about the decision"
 }
 ```
 
-Valid statuses: `submitted` → `under_review` → `interview` → `accepted`|`rejected`
+**DELETE /api/employer/applicants/:applicationId** — `ApplicantService.deleteApplication(userId, applicationId)`
+
+Soft-deletes the application via `isDeleted: true`.
+
+**Success (200):**
+```json
+{ "message": "Xóa đơn ứng tuyển thành công." }
+```
 
 ### 3.4 Dashboard
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/employer/dashboard` | Company statistics |
+
+**Service:** `DashboardService.getDashboard(userId)`
 
 **Success (200):**
 ```json
@@ -496,35 +951,125 @@ Valid statuses: `submitted` → `under_review` → `interview` → `accepted`|`r
       "rejected": 2
     },
     "successRate": "6%",
-    "recentApplications": [ ... ]
+    "recentApplications": [
+      {
+        "id": "UUID",
+        "status": "submitted",
+        "appliedAt": "2025-01-01T00:00:00.000Z",
+        "candidate": { "fullName": "...", "email": "...", "avatarUrl": null },
+        "jobTitle": "NodeJS Developer"
+      }
+    ]
   }
 }
 ```
 
 ---
 
-## 4. Public Endpoints
-
-No authentication required.
+## 4. Public Endpoints (No Auth)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/public/jobs/:id` | View job detail |
-| GET | `/api/public/companies/:id` | View company detail |
-| GET | `/api/search-jobs/search-jobs?keyword=...&location=...&jobType=...&jobLevel=...&salary=...&page=1&limit=10` | Search jobs |
+| GET | `/api/public/jobs/:id` | View job detail (approved only) |
+| GET | `/api/public/companies/:id` | View company detail (approved only) |
+| GET | `/api/public/job-suggestions` | Vector-based job search by filters (see §2.8 for details) |
+| GET | `/api/search-jobs/search-jobs` | Search jobs with filters |
 
-**GET /api/search-jobs/search-jobs**
+### GET /api/public/jobs/:id
+
+**Service:** `PublicService.getJobDetail(jobId)` — Only returns jobs with `status: 'approved'`.
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "UUID",
+    "title": "NodeJS Developer",
+    "description": "...",
+    "requirements": "...",
+    "benefits": "...",
+    "salaryMin": 1000,
+    "salaryMax": 2000,
+    "location": "HCM",
+    "jobType": "Full-time",
+    "jobLevel": "Junior",
+    "deadline": "2026-12-31T00:00:00.000Z",
+    "status": "approved",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z",
+    "company": {
+      "id": "UUID",
+      "name": "ABC Corp",
+      "logoUrl": "uploads/logos/...",
+      "city": "HCM",
+      "address": "123 Street",
+      "website": "https://...",
+      "size": "50-100",
+      "description": "..."
+    },
+    "skills": [{ "id": "uuid", "name": "NodeJS" }]
+  }
+}
+```
+
+### GET /api/public/companies/:id
+
+**Service:** `PublicService.getCompanyDetail(companyId)` — Only returns companies with `status: 'approved'`. Includes `active_jobs` (approved jobs only).
+
+```json
+{
+  "status": "success",
+  "data": {
+    "company": {
+      "id": "UUID",
+      "name": "ABC Corp",
+      "description": "...",
+      "website": "https://...",
+      "logoUrl": "uploads/logos/...",
+      "address": "123 Street",
+      "city": "HCM",
+      "size": "50-100",
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    },
+    "active_jobs": [
+      {
+        "id": "UUID",
+        "title": "NodeJS Developer",
+        "location": "HCM",
+        "salaryMin": 1000,
+        "salaryMax": 2000,
+        "jobType": "Full-time",
+        "jobLevel": "Junior",
+        "deadline": "2026-12-31T00:00:00.000Z",
+        "createdAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Note:** `active_jobs` includes `jobLevel` field (returned by `PublicService.getCompanyDetail`).
+
+### GET /api/search-jobs/search-jobs
+
+**Service:** `Search_jobService.searchJobs(filters)`
 
 **Query Parameters:**
-| Param | Type | Description |
-|-------|------|-------------|
-| keyword | string | Search keyword (uses vector search, fallback to text search) |
-| location | string | Filter by location |
-| jobType | string | Filter by type (Full-time, Part-time, etc.) |
-| jobLevel | string | Filter by level (Junior, Senior, etc.) |
-| salary | number | Minimum salary filter |
-| page | number | Page number (default: 1) |
-| limit | number | Items per page (default: 10, max: 50) |
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| keyword | string | No | Searches title, company name, skill name (case-insensitive `contains`) |
+| location | string | No | Filters by job location, company city, company address (case-insensitive) |
+| jobType | string | No | Exact match (Full-time, Part-time, Contract, Internship) |
+| jobLevel | string | No | Exact match (Intern, Fresher, Junior, Middle, Senior, Lead, Manager) |
+| salary | number | No | Minimum salary filter (checks `salaryMax >= value`) |
+| page | number | No | Default 1 |
+| limit | number | No | Default 10, max 50 |
+
+**Behavior:**
+- Only returns `status: 'approved'` jobs with non-expired deadlines (or no deadline)
+- Ordered by `createdAt: 'desc'`
+- Uses **string matching** (not vector/semantic) via Prisma `contains` (case-insensitive)
 
 **Success (200):**
 ```json
@@ -541,11 +1086,21 @@ No authentication required.
         "title": "NodeJS Developer",
         "location": "Hồ Chí Minh",
         "jobType": "Full-time",
+        "jobLevel": "Junior",
+        "benefits": "...",
+        "description": "...",
+        "requirements": "...",
+        "skills": [{ "id": "uuid", "name": "NodeJS" }],
         "salaryMin": 1000,
         "salaryMax": 2000,
-        "company": { ... },
-        "skills": ["NodeJS"],
-        "similarityScore": 0.85
+        "deadline": "2026-12-31T00:00:00.000Z",
+        "company": {
+          "id": "UUID",
+          "name": "ABC Corp",
+          "logoUrl": "uploads/logos/...",
+          "city": "Hồ Chí Minh",
+          "address": "123 Street"
+        }
       }
     ]
   }
@@ -560,13 +1115,67 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 
 ### 5.1 User Management
 
+**Service:** `adminService` — all methods.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/admin/users?role=candidate\|recruiter&isActive=true\|false&keyword=...&page=1&limit=10` | List all users |
+| GET | `/api/admin/users` | List all users (paginated) |
 | PATCH | `/api/admin/users/:id/toggle-lock` | Toggle lock/unlock user |
 | DELETE | `/api/admin/users/:id` | Delete user (not Admins) |
 
+**GET /api/admin/users** — Query: `?role=candidate|recruiter&isActive=true|false&keyword=...&page=1&limit=10`
+
+Query param `is_active` (snake_case) is accepted from query string (converted to camelCase in service).
+
+**Success (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "total_items": 100,
+    "total_pages": 10,
+    "current_page": 1,
+    "users": [
+      {
+        "id": "UUID",
+        "email": "abc@gmail.com",
+        "fullName": "Nguyễn Văn A",
+        "role": "candidate",
+        "phone": "0901234567",
+        "avatarUrl": null,
+        "isActive": true,
+        "createdAt": "2025-01-01T00:00:00.000Z",
+        "updatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**PATCH /api/admin/users/:id/toggle-lock** — `adminService.toggleLockUser(id)`
+
+Cannot lock admin accounts. Toggles `isActive` field.
+
+**Success (200):**
+```json
+{
+  "id": "UUID",
+  "fullName": "Nguyễn Văn A",
+  "email": "abc@gmail.com",
+  "role": "recruiter",
+  "isActive": false,
+  "message": "Đã khóa tài khoản."
+}
+```
+
+**DELETE /api/admin/users/:id** — `adminService.deleteUser(id)`
+Cannot delete admin accounts.
+
+**Success (200):** `{ "message": "Đã xóa user thành công" }`
+
 ### 5.2 Company Review
+
+**Service:** `AdminCompanyService` — all methods.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -574,7 +1183,7 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 | GET | `/api/admin/companies/pending` | List pending companies |
 | PATCH | `/api/admin/companies/:id/review` | Approve or reject company |
 
-**PATCH /api/admin/companies/:id/review**
+**PATCH /api/admin/companies/:id/review** — `AdminCompanyService.reviewCompany(companyId, action, reason)`
 
 **Request Body:**
 ```json
@@ -583,21 +1192,46 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
   "reason": "Valid business documents"
 }
 ```
-`action`: `approved` | `rejected` (required). `reason` required when `action = 'rejected'`.
+`action`: `approved` | `rejected` (required). `reason` required when `action = 'rejected'`. Returns **409 Conflict** if company already processed (status not `pending`).
+
+**Success (200):**
+```json
+{
+  "message": "Đã duyệt công ty thành công.",
+  "data": {
+    "id": "UUID",
+    "name": "ABC Corp",
+    "status": "approved",
+    "rejectionReason": null,
+    "user": { "fullName": "...", "email": "..." }
+  }
+}
+```
+
+**Errors:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Invalid action or missing rejection reason |
+| 404 | Company not found |
+| 409 | Company already processed |
+| 500 | Server error |
 
 ### 5.3 Job Review
 
+**Service:** `AdminJobService` — all methods.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/admin/jobs?status=pending\|approved\|rejected\|paused` | List all jobs |
+| GET | `/api/admin/jobs` | List all jobs (paginated, filterable) |
 | GET | `/api/admin/jobs/pending` | List pending jobs |
 | GET | `/api/admin/jobs/:id` | Job detail for review |
 | PATCH | `/api/admin/jobs/:id/review` | Approve or reject job |
 | DELETE | `/api/admin/jobs/:id` | Delete violating job |
 
-**PATCH /api/admin/jobs/:id/review**
+**PATCH /api/admin/jobs/:id/review** — `AdminJobService.reviewJob(jobId, action, reason)`
 
-**Request Body:**
+Returns **409 Conflict** if job already processed.
+
 ```json
 {
   "action": "approved",
@@ -605,7 +1239,34 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 }
 ```
 
+**Success (200):**
+```json
+{
+  "message": "Đã duyệt tin tuyển dụng thành công.",
+  "data": { ... }
+}
+```
+or
+```json
+{
+  "message": "Đã từ chối tin tuyển dụng.",
+  "data": { ... }
+}
+```
+
+**DELETE /api/admin/jobs/:id** — Hard-deletes a job (even if approved). **Success (200):** `{ "message": "Xóa tin tuyển dụng vi phạm thành công." }`
+
+**Errors:**
+| Status | Condition |
+|--------|-----------|
+| 400 | Invalid action or missing rejection reason |
+| 404 | Job not found |
+| 409 | Job already processed |
+| 500 | Server error |
+
 ### 5.4 Reports & Statistics
+
+**Service:** `AdminReportService` — all methods.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -614,6 +1275,70 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 | GET | `/api/admin/reports/applications/monthly` | Applications by month (12 months) |
 | GET | `/api/admin/reports/jobs/by-type` | Jobs grouped by type |
 | GET | `/api/admin/reports/jobs/by-level` | Jobs grouped by level |
+
+**GET /api/admin/reports/overview** — `AdminReportService.getSystemStats()`
+
+**Success (200):** All report endpoints return `{ status: 'success', data: ... }`.
+
+```json
+{
+  "status": "success",
+  "data": {
+    "users": { "total": 1000, "candidates": 800, "recruiters": 200 },
+    "companies": { "total": 150, "approved": 120, "pending": 30 },
+    "jobs": { "total": 500, "approved": 400, "pending": 50, "rejected": 50 },
+    "applications": { "total": 2000, "accepted": 300, "success_rate": "25%" }
+  }
+}
+```
+
+**GET /api/admin/reports/users/growth** — Raw SQL: `DATE_TRUNC('month', created_at)` grouping by role, 12 months.
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "month": "2025-01", "candidate": 50, "recruiter": 10, "total": 60 },
+    { "month": "2025-02", "candidate": 45, "recruiter": 8, "total": 53 }
+  ]
+}
+```
+
+**GET /api/admin/reports/applications/monthly** — Raw SQL: `DATE_TRUNC('month', created_at)` grouping by status, 12 months.
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "month": "2025-01", "total": 30, "accepted": 5, "rejected": 3 },
+    { "month": "2025-02", "total": 25, "accepted": 4, "rejected": 2 }
+  ]
+}
+```
+
+**GET /api/admin/reports/jobs/by-type** — `prisma.job.groupBy({ by: ['jobType'], where: { status: 'approved' } })`
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "jobType": "Full-time", "count": 200 },
+    { "jobType": "Part-time", "count": 50 }
+  ]
+}
+```
+
+**GET /api/admin/reports/jobs/by-level** — `prisma.job.groupBy({ by: ['jobLevel'], where: { status: 'approved' } })`
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "jobLevel": "Junior", "count": 80 },
+    { "jobLevel": "Senior", "count": 60 }
+  ]
+}
+```
 
 ---
 
@@ -631,42 +1356,94 @@ All endpoints require `Authorization: Bearer <accessToken>` + Role: `ADMIN`.
 
 ---
 
-## 7. Chat / LLM Endpoints (AI Job Assistant)
+## 7. RAG / Vector Search Architecture
 
-**Auth:** Bearer Token, Role: `CANDIDATE`
+### 7.1 Data Flow
 
-### POST /api/chat/chat
-
-Submit a natural-language question about jobs. The backend:
-1. Cleans and standardizes the text (Vietnamese text preprocessing)
-2. Generates a vector embedding via **HuggingFace Inference API**
-3. Performs **semantic search** across `job_vectors` using `pgvector` (`<=>` cosine similarity, threshold > 0.4)
-4. Packages the top 3 matching jobs as context
-5. Sends the prompt to a local **Qwen 2.5 3B** model running on **Ollama** (`http://localhost:11434`)
-6. Returns the model's response in Vietnamese
-
-**Request Body:**
-```json
-{ "question": "Có việc làm NodeJS nào ở HCM không?" }
+```
+[JOB CREATED]                                      [RESUME UPLOADED]
+      |                                                   |
+      v                                                   v
+  cleaningJob(job)                                  pdfReader(file) → raw text
+      |                                                   |
+      v                                                   v
+  textStandardization()                             cleaningText()
+      |                                                   |
+      v                                                   v
+  textChunking() → 300-char chunks, 50 overlap     textStandardization()
+      |                                                   |
+      v                                                   v
+  textEmbedding() → 384-dim vector                  textChunking()
+      |                                                   |
+      v                                                   v
+  job_vectors table                                textEmbedding() → 384-dim vector
+      |                                                   |
+      v                                                   v
+  vectorStatus: COMPLETED                          resume_vectors table
 ```
 
-**Success (200):**
-```json
-{ "ans": "Tôi tìm thấy một số công việc NodeJS phù hợp tại Hồ Chí Minh..." }
+### 7.2 Embedding Model
+
+- **Model:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+- **Provider:** HuggingFace Inference API (`@huggingface/inference`)
+- **Vector Dimension:** 384
+- **Retry:** 3 attempts with exponential backoff
+- **Similarity Metric:** Cosine similarity via `<=>` operator in pgvector
+- **Threshold (MIN_SIMILARITY_SCORE):** 0.3 (configurable via `.env`)
+
+### 7.3 Database Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `job_vectors` | Job description embeddings | `job_id`, `content`, `embedding` (vector(384)) |
+| `resume_vectors` | Resume PDF embeddings | `user_id`, `resume_id`, `content`, `embedding` (vector(384)) |
+
+### 7.4 Similarity Search Queries
+
+**Job Vector Search (raw SQL):**
+```sql
+SELECT DISTINCT ON (j.id)
+    j.id, j.title, j.description,
+    j.salary_min, j.salary_max, j.location, j.job_type,
+    c.name AS companyName, c.address AS companyAddress, c.city AS companyCity,
+    1 - (v.embedding <=> ${embedding}::vector) AS similarity
+FROM jobs j
+JOIN job_vectors v ON j.id = v.job_id
+JOIN companies c ON j.company_id = c.id
+WHERE 1 - (v.embedding <=> ${embedding}::vector) > ${MIN_SIMILARITY_SCORE}
+ORDER BY j.id, similarity DESC
+LIMIT 3;
 ```
 
-### GET /api/chat-history/chat-history
+**CV-vs-Job Cross Search:**
+```sql
+SELECT MAX(1 - (jv.embedding <=> rv.embedding)) AS similarity
+FROM job_vectors jv
+CROSS JOIN LATERAL unnest(${resumeEmbeddings}::vector[]) AS rv(embedding)
+WHERE jv.job_id = j.id
+```
 
-Returns all past Q&A sessions for the authenticated candidate.
+### 7.5 Background Vector Processing
+
+- **Job vectorization:** Fires `setImmediate` after job create/update — not awaited
+- **Resume vectorization:** Fires `setImmediate` after upload — not awaited
+- **Scheduler:** `vectorRetry.scheduler.js` runs every 30 min via `node-cron`, retries jobs/resumes with `vectorStatus: PENDING` or `FAILED` (batch size: 5 jobs, unlimited resumes)
+- **Exports:** `setupVectorSchedule()`, `stopVectorSchedule()` (used in test cleanup)
 
 ---
 
 ## 8. Data Conventions
 
-- **IDs:** All UUID (`String @id @default(uuid()) @db.Uuid`)
-- **Request/Response:** `camelCase` for all fields (`fullName`, `jobType`, `salaryMin`)
-- **Database columns:** `snake_case` mapped via `@map("column_name")`
-- **Job statuses:** `pending` → `approved` | `rejected`, also `paused`
-- **Application statuses:** `submitted` → `under_review` → `interview` → `accepted` | `rejected`
-- **Company statuses:** `pending` → `approved` | `rejected`
-- **Vector search:** Uses `pgvector` extension with `job_vectors` and `resume_vectors` tables
+| Convention | Rule |
+|------------|------|
+| **IDs** | All UUID (`String @id @default(uuid()) @db.Uuid`) |
+| **Request/Response** | camelCase for all fields (`fullName`, `jobType`, `salaryMin`) |
+| **Database columns** | snake_case mapped via `@map("column_name")` in Prisma; **queries use camelCase** (`prisma.user.findMany({ where: { fullName: ... } })`) |
+| **Job statuses** | `pending` → `approved` | `rejected`, also `paused` |
+| **Application statuses** | `submitted` → `under_review` → `interview` → `accepted` | `rejected` |
+| **Company statuses** | `pending` → `approved` | `rejected` |
+| **Vector statuses** | `PENDING` → `PROCESSING` → `COMPLETED` | `FAILED` |
+| **Soft delete** | Applications use `isDeleted: true` (not hard-deleted) |
+| **Pagination** | All list endpoints: `{ total_items, total_pages, current_page, ...items[] }` |
+| **Pagination limits** | Default `limit=10`, max `limit=50`, min `limit=1` |
+| **Null handling** | `dateOfBirth`, `gender`, `headline`, `summary`, `linkedinUrl`, `logoUrl`, `avatarUrl`, `coverLetter`, `rejectionReason`, `deadline`, `companyCity`, `companyAddress` may all be `null` — consumers should use fallback (`??` / `||`) |

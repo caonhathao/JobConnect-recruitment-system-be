@@ -8,12 +8,8 @@ const multer            = require('multer');
 router.use(protect);
 router.use(authorize(ROLES.RECRUITER));
 
-// PROFILE
-//router.post('/profile', EmployerController.createCompany);
-router.get('/',  EmployerController.getMyCompany);
-router.put('/',  EmployerController.updateCompany);
-
-// LOGO
+router.get('/profile',  EmployerController.getMyCompany);
+router.put('/profile',  EmployerController.updateCompany);
 router.put('/logo',
     uploadLogoConfig.single('logo'),
     EmployerController.updateLogo

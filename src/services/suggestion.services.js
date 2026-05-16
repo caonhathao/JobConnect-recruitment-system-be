@@ -1,5 +1,5 @@
 const prisma = require("../config/prisma");
-const { textGeneration } = require("../lib/models/connect.models");
+const { geminiGeneration } = require("../lib/providers/gemini.providers");
 const { cleaningText } = require("../utils/preprocessing/textCleaner");
 const { textEmbedding } = require("../utils/preprocessing/textEmbedding");
 const {
@@ -20,14 +20,13 @@ const MIN_SIMILARITY_SCORE = parseFloat(
  */
 
 /**
- *
+ * This function is the main function to handle the job chat, it will receive the question from client, then process it and return the answer.
  * @param {String} question
  * @param {String} userId
  * @returns {Promise<Record<String,String>>}
  */
 exports.chat = async (question, userId) => {
-  /**first, we need to  determine whether question is belongs to a specific category
-   */
+  //first, we need to  determine whether question is belongs to a specific category
 
   const historyChat = await _getNewestAnswerFromHistory(userId);
   const prompt = `
@@ -43,15 +42,13 @@ exports.chat = async (question, userId) => {
     "entities": ["string"]
   }
    */
-  const result = await textGeneration(prompt, 1);
+  const result = await geminiGeneration(prompt, 1);
   console.log("Category:", result);
 
   if (result.type === "SUCCESS") {
     try {
       // @ts-ignore
-      const { group, type, refined_question, entities } = JSON.parse(
-        result.message,
-      );
+      const { group, type, refined_question, entities } = result.data;
       switch (group) {
         case 1:
           return await _handleJobSearch(refined_question);
@@ -65,7 +62,7 @@ exports.chat = async (question, userId) => {
             userId,
           );
         case 4:
-          return await _handleResearchCompany(refined_question, entities);
+          return await _handleResearch(refined_question, type, entities);
         case 5:
           return await _handleGreeting(refined_question);
         default:
@@ -76,25 +73,134 @@ exports.chat = async (question, userId) => {
       }
     } catch (error) {
       console.error("Error parsing category response:", error);
-      return messageResponse(
-        TYPE.failed,
-        "Đã có lỗi xảy ra",
-      );
+      return messageResponse(TYPE.failed, "Đã có lỗi xảy ra");
     }
   } else return result;
 };
 
 /**
- *
+ * This function is to get the chat history of the user, which includes all the questions asked and answers received in the past.
  * @param {String} userId
- * @returns
+ * @returns {Promise<Record<String,String>>}
  */
 exports.history = async (userId) => {
   const history = await prisma.userChat.findMany({
     where: { userId: userId },
+    select: {
+      id: true,
+      question: true,
+      answer: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: "desc" },
   });
-  return history;
+
+  let isFrozen = false;
+  if (history.length > 0) {
+    const lastChatTime = new Date(history[0].createdAt).getTime();
+    const currentTime = new Date().getTime();
+    const diffHours = (currentTime - lastChatTime) / (1000 * 60 * 60);
+
+    if (diffHours > 24) {
+      isFrozen = true;
+    }
+  }
+  return messageResponse(TYPE.success, "Lịch sử chat của bạn", {
+    history,
+    isFrozen,
+  });
+};
+
+/**
+ * This function is to get job suggestions based on the user's filters.
+ * @param {String} userId
+ * @param {Object} filters
+ * @returns {Promise<Array>}
+ */
+exports.getJobSuggestions = async (userId, filters) => {
+  const { keyword, location, jobType, jobLevel, salary } = filters;
+  // We will build the prompt for the model to generate suggestions based on the filters and keyword.
+  const prompt = {
+    keyword,
+    location,
+    jobType,
+    jobLevel,
+    salary,
+  };
+  const refined_question = await geminiGeneration(JSON.stringify(prompt), 5);
+  if (refined_question.type === "SUCCESS") {
+    // Now we will search for jobs based on the refined question.
+    const cleaned_question = cleaningText(refined_question.message);
+    const embedding = await textEmbedding(
+      textStandardization(cleaned_question),
+    );
+    if (!embedding) {
+      return messageResponse(
+        TYPE.failed,
+        "Xin lỗi, tôi không thể xử lý yêu cầu của bạn ngay bây giờ. Vui lòng thử lại sau.",
+      );
+    }
+    const embeddingString = `${JSON.stringify(embedding)}`;
+    const queryResults = await prisma.$queryRaw`
+      SELECT DISTINCT ON (j.id) 
+          j.id,
+          1 - (v.embedding <=> ${embeddingString}::vector) AS similarity
+      FROM "jobs" j
+      JOIN "job_vectors" v ON j.id = v.job_id
+      WHERE 1 - (v.embedding <=> ${embeddingString}::vector) > ${MIN_SIMILARITY_SCORE}
+      ORDER BY j.id, (1 - (v.embedding <=> ${embeddingString}::vector)) DESC
+      LIMIT 10;
+    `;
+
+    if (queryResults.length === 0) {
+      return messageResponse(
+        TYPE.failed,
+        "Xin lỗi, tôi không tìm thấy công việc nào phù hợp với yêu cầu của bạn. Vui lòng thử lại với các tiêu chí khác hoặc giảm bớt một số tiêu chí để có nhiều kết quả hơn.",
+      );
+    }
+    const jobs = await prisma.job.findMany({
+      where: {
+        id: {
+          in: queryResults.map((result) => result.id),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        jobType: true,
+        jobLevel: true,
+        benefits: true,
+        description: true,
+        requirements: true,
+        skills: {
+          select: {
+            id: true,
+            skill: true,
+          },
+        },
+        salaryMin: true,
+        salaryMax: true,
+        deadline: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+            city: true,
+            address: true,
+          },
+        },
+      },
+    });
+    return messageResponse(
+      TYPE.success,
+      "Đây là những công việc phù hợp với yêu cầu của bạn:",
+      { jobs },
+    );
+  } else {
+    return messageResponse(TYPE.failed, refined_question.message);
+  }
 };
 
 /**
@@ -135,7 +241,7 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
       "Kích thước": company.size,
     }));
     const prompt = `Danh sách công ty (Dưới dạng JSON):\n${JSON.stringify(cleanResults, null, 2)}\n\nCâu hỏi của người dùng:\n${refined_question}\n\n`;
-    const response = await textGeneration(prompt, 0);
+    const response = await geminiGeneration(prompt, 0);
     return response;
   }
   if (type === "JOB") {
@@ -186,7 +292,7 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
       "Kỹ năng": job.skills.map((skill) => skill),
     }));
     const prompt = `Danh sách công việc (Dưới dạng JSON):\n${JSON.stringify(cleanResults, null, 2)}\n\nCâu hỏi của người dùng:\n${refined_question}\n\n`;
-    const response = await textGeneration(prompt, 0);
+    const response = await geminiGeneration(prompt, 0);
     return response;
   }
   if (type === "CV_VS_JOB") {
@@ -207,7 +313,7 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
       where: {
         AND: [
           { title: { contains: entities[1], mode: "insensitive" } },
-          entities[1]
+          entities[2]
             ? {
                 company: {
                   name: { contains: entities[2], mode: "insensitive" },
@@ -272,7 +378,7 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
     CÂU HỎI: ${refined_question}\n\n
     Hãy trả lời ngắn gọn, tập trung vào sự khớp nhau về kỹ năng và kinh nghiệm.`;
 
-    const response = await textGeneration(prompt, 3);
+    const response = await geminiGeneration(prompt, 3);
     return response;
   }
   return messageResponse(
@@ -292,6 +398,7 @@ const _getNewestAnswerFromHistory = async (userId) => {
     select: {
       question: true,
       answer: true,
+      createdAt: true,
     },
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -299,17 +406,24 @@ const _getNewestAnswerFromHistory = async (userId) => {
 
   if (!history) return null;
 
-  const cleanHistory = history.map((h) => {
-    const cleanAnswer = h.answer
-      .replace(/\n/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const cleanHistory = history
+    .filter((h) => {
+      const lastChatTime = new Date(h.createdAt).getTime();
+      const currentTime = new Date().getTime();
+      const diffHours = (currentTime - lastChatTime) / (1000 * 60 * 60);
+      return diffHours < 24; // Chỉ giữ lại các bản ghi trong vòng 24h
+    })
+    .map((h) => {
+      const cleanAnswer = h.answer
+        .replace(/\n/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    return {
-      question: h.question,
-      answer: cleanAnswer,
-    };
-  });
+      return {
+        question: h.question,
+        answer: cleanAnswer,
+      };
+    });
   return cleanHistory;
 };
 
@@ -335,7 +449,7 @@ const _handleJobSearch = async (question) => {
    * Now we will search in the database by raw SQL.
    * and join with full information.
    */
-  const embeddingString = `${JSON.stringify(vectorizationQuestion)}`;
+  const embeddingString = JSON.stringify(vectorizationQuestion);
   const queryResults = await prisma.$queryRaw`
     SELECT DISTINCT ON (j.id) 
         j.id, 
@@ -354,7 +468,7 @@ const _handleJobSearch = async (question) => {
     JOIN "companies" c ON j.company_id = c.id
     WHERE 1 - (v.embedding <=> ${embeddingString}::vector) > ${MIN_SIMILARITY_SCORE}
     ORDER BY j.id, (1 - (v.embedding <=> ${embeddingString}::vector)) DESC
-    LIMIT 3;
+    LIMIT 5;
   `;
 
   if (queryResults.length === 0) {
@@ -382,7 +496,7 @@ const _handleJobSearch = async (question) => {
     "Độ phù hợp": Math.round(job.similarity * 100) + "%",
   }));
   const prompt = `Danh sách công việc (Dưới dạng JSON):\n${JSON.stringify(cleanResults, null, 2)}\n\nCâu hỏi của người dùng:\n${question}\n\n`;
-  const response = await textGeneration(prompt, 0);
+  const response = await geminiGeneration(prompt, 0);
   return response;
 };
 
@@ -479,73 +593,139 @@ const _handleJobSearchByCV = async (question, userId) => {
     "Độ phù hợp": Math.round(job.similarity * 100) + "%",
   }));
   const prompt = `Danh sách công việc (Dưới dạng JSON):\n${JSON.stringify(cleanResults, null, 2)}\n\nCâu hỏi của người dùng:\n${question}\n\n`;
-  const response = await textGeneration(prompt, 0);
+  const response = await geminiGeneration(prompt, 0);
   return response;
 };
 /**
- *
+ * This function is to handle the research about company,
+ * when user ask about information of a company,
+ * we will find all information about that company in database,
+ * then re-format and send to model to generate answer.
  * @param {*} refined_question
  * @param {*} entities
- * @returns
+ * @param {*} type
+ * @returns {Promise<Record<String,String>>}
  */
-const _handleResearchCompany = async (refined_question, entities) => {
-  //find all information of the company
-  const company = await prisma.company.findFirst({
-    where: {
-      // @ts-ignore
-      OR: entities.map((name) => ({
-        name: { contains: name, mode: "insensitive" },
-      })),
-    },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      website: true,
-      address: true,
-      city: true,
-    },
-  });
+const _handleResearch = async (refined_question, type, entities) => {
+  if (type === "COMPANY") {
+    //find all information of the company
+    const company = await prisma.company.findFirst({
+      where: {
+        name: { contains: entities[2] ?? "", mode: "insensitive" },
+        city: { contains: entities[3] ?? "", mode: "insensitive" },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        website: true,
+        address: true,
+        city: true,
+      },
+    });
 
-  if (!company) {
-    return messageResponse(TYPE.failed, "Không tìm thấy thông tin về công ty.");
+    if (!company) {
+      return messageResponse(
+        TYPE.failed,
+        "Không tìm thấy thông tin về công ty.",
+      );
+    }
+    //now re-format result
+    const cleanCompanyInfo = {
+      id: company.id,
+      Tên: company.name,
+      "Mô tả": company.description,
+      Website: company.website,
+      "Địa chỉ": company.address,
+      "Thành phố": company.city ?? " Không rõ",
+    };
+
+    const prompt = `Thông tin công ty (Dưới dạng JSON):\n${JSON.stringify(
+      cleanCompanyInfo,
+      null,
+      2,
+    )}\n\nCâu hỏi của người dùng:\n${refined_question}\n\n`;
+
+    return await geminiGeneration(prompt, 4);
   }
-  //now re-format result
-  const cleanCompanyInfo = {
-    id: company.id,
-    Tên: company.name,
-    "Mô tả": company.description,
-    Website: company.website,
-    "Địa chỉ": company.address,
-    "Thành phố": company.city ?? " Không rõ",
-  };
+  if (type === "JOB") {
+    const job = await prisma.job.findFirst({
+      where: {
+        title: { contains: entities[1] ?? "", mode: "insensitive" },
+        company: {
+          name: { contains: entities[2] ?? "", mode: "insensitive" },
+        },
+        location: { contains: entities[3] ?? "", mode: "insensitive" },
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        benefits: true,
+        salaryMin: true,
+        salaryMax: true,
+        location: true,
+        jobType: true,
+        jobLevel: true,
+        skills: {
+          select: {
+            skill: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        company: {
+          select: {
+            name: true,
+            address: true,
+            city: true,
+            website: true,
+          },
+        },
+      },
+    });
 
-  const prompt = `Thông tin công ty (Dưới dạng JSON):\n${JSON.stringify(
-    cleanCompanyInfo,
-    null,
-    2,
-  )}\n\nCâu hỏi của người dùng:\n${refined_question}\n\n`;
+    if (!job) {
+      return messageResponse(
+        TYPE.failed,
+        "Không tìm thấy thông tin về công việc.",
+      );
+    }
 
-  return await textGeneration(prompt, 4);
+    const cleanJobInfo = {
+      id: job.id,
+      "Vị trí": job.title,
+      "Công ty": job.company.name,
+      "Mức lương": `${job.salaryMin} - ${job.salaryMax} USD`,
+      "Địa điểm": job.location,
+      "Mô tả": job.description,
+      "Loại việc làm": job.jobType,
+      "Trình độ": job.jobLevel,
+      "Kỹ năng": job.skills.map((s) => s.skill.name).join(", "),
+      Website: job.company.website,
+      "Địa chỉ": job.company.address,
+      "Thành phố": job.company.city ?? " Không rõ",
+    };
 
-  // return JSON.stringify(cleanCompanyInfo);
+    const prompt = `Thông tin công việc (Dưới dạng JSON):\n${JSON.stringify(
+      cleanJobInfo,
+      null,
+      2,
+    )}\n\nCâu hỏi của người dùng:\n${refined_question}\n\n`;
+
+    return await geminiGeneration(prompt, 4);
+  }
 };
 
 /**
- *
+ * This function is to handle the greeting, when user ask about greeting,
  * @param {*} refined_question
  * @returns
  */
 const _handleGreeting = async (refined_question) => {
   const prompt = `Câu hỏi của người dùng:\n${refined_question}`;
-  const response = await textGeneration(prompt, 2);
+  const response = await geminiGeneration(prompt, 2);
   return response;
 };
-
-/**
- *
- * @param {*} resumeId
- * @param {*} jobEmbedding
- * @param {*} topK
- * @returns
- */
