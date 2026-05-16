@@ -236,4 +236,73 @@ const ABBREVIATIONS = {
   etc: "et cetera",
   vs: "versus",
 };
-module.exports = { STOP_WORDS, ABBREVIATIONS };
+
+const TECH_MAPPING = {
+  // Frontend & Frameworks (Tiếp nối của Hào)
+  "node.js": "nodejs",
+  "node js": "nodejs",
+  "react.js": "reactjs",
+  "react js": "reactjs",
+  "angular.js": "angularjs",
+  "angular js": "angularjs",
+  "vue.js": "vuejs",
+  "vue js": "vuejs",
+  "next.js": "nextjs",
+  "next js": "nextjs",
+  "express.js": "expressjs",
+  "express js": "expressjs",
+  "nuxt.js": "nuxtjs",
+  "nuxt js": "nuxtjs",
+  "svelte.js": "sveltejs",
+  "svelte js": "sveltejs",
+
+  // Languages with Special Characters (Rất quan trọng để tránh lỗi Token)
+  "c#": "csharp",
+  "c #": "csharp",
+  "c++": "cpp",
+  "c ++": "cpp",
+  "f#": "fsharp",
+  "objective-c": "objectivec",
+  "dot net": "dotnet",
+  ".net": "dotnet",
+  "asp.net": "aspnet",
+  "core .net": "dotnetcore",
+
+  // Mobile & Cross-platform
+  "react native": "reactnative",
+  "flutter": "flutter",
+  "kotlin": "kotlin",
+  "swift": "swift",
+  "dart": "dart",
+
+  // Databases & Storage (Để lọc Job theo Stack dữ liệu)
+  "mongodb": "mongodb",
+  "mongo db": "mongodb",
+  "postgresql": "postgresql",
+  "postgres": "postgresql",
+  "mysql": "mysql",
+  "sql server": "sqlserver",
+  "mssql": "sqlserver",
+  "redis": "redis",
+  "elasticsearch": "elasticsearch",
+
+  // DevOps, Cloud & Tools
+  "aws": "amazonwebservices",
+  "amazon web services": "amazonwebservices",
+  "google cloud": "gcp",
+  "azure": "azure",
+  "docker": "docker",
+  "kubernetes": "k8s",
+  "jenkins": "jenkins",
+  "github actions": "githubactions",
+  "ci/cd": "cicd",
+  "cicd": "cicd",
+
+  // Big Data & AI
+  "machine learning": "machinelearning",
+  "deep learning": "deeplearning",
+  "artificial intelligence": "ai",
+  "big data": "bigdata",
+  "data science": "datascience",
+};
+module.exports = { STOP_WORDS, ABBREVIATIONS, TECH_MAPPING };

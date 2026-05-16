@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const jobChatController = require("../controllers/jobChat.controllers");
+const suggestion = require("../controllers/suggestion.controller");
 const { authorize, protect } = require("../middleware/authMiddleware");
 const { ROLES } = require("../constants/roles");
 
@@ -8,7 +8,8 @@ router.use(protect);
 router.use(authorize(ROLES.CANDIDATE));
 
 // Craete chat endpoint
-router.post("/chat", jobChatController.chat);
+router.post("/chat", suggestion.chat);
 //Get all chat history of user
-router.get("/chat-history", jobChatController.history);
+router.get("/chat-history", suggestion.chatHistory);
+
 module.exports = router;

@@ -57,12 +57,13 @@ const ROLES = require('../constants/roles');
 - `src/config/` — Prisma client init, multer configs
 - `src/utils/` — Token utils (`generateAccessToken`, `generateRefreshToken`, `verifyRefreshToken`), text preprocessing
 - `src/constants/` — Role definitions (`CANDIDATE`, `RECRUITER`, `ADMIN`), enums
-- `src/scheduler/` — Cron jobs via `node-cron` (e.g., `jobVectorRetry.js`)
+- `src/scheduler/` — Cron jobs via `node-cron` (e.g., `vectorRetry.scheduler.js`)
 - `src/lib/models/` — Legacy Sequelize models (not actively used)
 
 ### Prisma ORM
 - Primary ORM for all runtime DB operations
 - Schema: `prisma/schema/schema.prisma` (root) + includes: `auth.prisma`, `job.prisma`, `candidate.prisma`, `company.prisma`, `rag.prisma`, `chats.prisma`, `other.prisma`
+- Uses `prismaSchemaFolder` preview feature for multi-file schema
 - Client: `prisma/src/generated/` (output of `npm run generate`)
 - Connection: `src/config/prisma.js` uses `@prisma/adapter-pg` with `pg` Pool (global singleton in dev)
 - UUID primary keys: `String @id @default(uuid())`
@@ -89,6 +90,7 @@ catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
 }
 ```
+- Some controllers use a `handleError` helper with separate BAD_REQUEST / NOT_FOUND arrays (e.g., `EmployerController.js`)
 
 ### Response Format
 ```javascript
@@ -148,17 +150,25 @@ app.use('/api/employer/profile', employerRoutes);
 app.use('/api/admin/companies', adminCompanyRoutes);
 // ... etc
 ```
-- Server exports `app` and `server` for test cleanup: `module.exports = app; module.exports.server = server;`
-- Test files require server: `app = require('../../server');`
+- Server exports `app` (default + named) and `server` (named): `module.exports = app; module.exports.app = app; module.exports.server = server;`
+- Test files import: `const { app, server } = require('../../server');`
 
 ### Testing (Jest + Supertest)
 - All tests in `tests/integration/`
-- Pattern: `beforeAll` imports server, tests use `supertest(app)`, `afterAll` closes server + prisma disconnect
-- Tests create/fetch real DB users using `prisma.user.create()` with cleanup via `deleteMany` in `beforeAll`
-- **Must mock HuggingFace embeddings** to avoid network calls: `jest.mock('../../src/utils/preprocessing/textEmbedding', ...)`
-- Helper: `tests/helper.js` exports `getAccessToken(email, password)` — hits live `POST /api/auth/login`
-- Server exports `app` and `server` for test lifecycle: `module.exports = app; module.exports.server = server;`
-- Test files require server: `const { app, server } = require('../../server');`
+- **Must mock HuggingFace embeddings** to avoid network calls:
+```javascript
+jest.mock('../../src/utils/preprocessing/textEmbedding', () => ({
+  textEmbedding: jest.fn().mockResolvedValue(Array(384).fill(0.1))
+}));
+```
+- Test lifecycle pattern:
+  - `beforeAll`: Clean up test data with `deleteMany` + `startsWith`, then `require('../../server')` *after* cleanup, create seed data, login to get token
+  - `afterAll`: `server.close()` via promise, `await prisma.$disconnect()`, also stop scheduler: `stopVectorSchedule()`
+  - Use `jest.setTimeout(30000)` for long tests
+- Helper: `tests/helper.js` exports `getAccessToken(email, password)` — hits live `POST /api/auth/login` (note: currently has a bug importing prisma config instead of the Express app)
+- Test data uses unique suffixes: `const suffix = Date.now();` + `startsWith` prefix for cleanup
+- IDs generated with: `crypto.randomUUID()`
+- Password hashing in tests: `bcrypt.hashSync('password123', 10)`
 - Seed data populated via `npm run seed` before running test suite
 
 ### API Documentation
@@ -167,15 +177,16 @@ app.use('/api/admin/companies', adminCompanyRoutes);
 - All request/response fields use **camelCase** (documented explicitly)
 
 ### Scheduler
-- `src/scheduler/vectorRetry.scheduler.js` — `setupVectorSchedule()` runs daily via `node-cron`
-- Retries vector embedding for jobs that failed previous embedding attempts
+- `src/scheduler/vectorRetry.scheduler.js` — `setupVectorSchedule()` runs every 30 min via `node-cron`
+- Retries vector embedding for jobs/resumes that failed previous embedding attempts
+- Exports `{ setupVectorSchedule, stopVectorSchedule }` for server startup and test cleanup
 
 ### Linting & Quality
 - **ESLint** configured: `eslint.config.mjs` with `@eslint/js` recommended rules (CommonJS source type)
 - No npm script for linting — run manually: `npx eslint .`
-- No Prettier or other formatters
+- No Prettier or other formatters (`.editorconfig` exists but is minimal)
 - Maintain consistency manually with existing patterns
-- tsconfig.json exists for editor tooling only
+- tsconfig.json and jsconfig.json exist for editor tooling only
 
 ### Notes for Agents
 - Server entry: `server.js`
@@ -183,5 +194,5 @@ app.use('/api/admin/companies', adminCompanyRoutes);
 - No Cursor rules (`.cursorrules`, `.cursor/rules/`) or Copilot rules (`.github/copilot-instructions.md`) exist
 - **Ghost APIs Removed** (2026-05): Endpoints not in `API.md` removed from routes
 - **Vector Search**: Current APIs use string-matching; RAG/vector features planned for dedicated endpoints
-- Scheduled task: `setupVectorSchedule()` runs daily via `node-cron` for vector retry
-- Scheduler code: `src/scheduler/jobVectorRetry.js`
+- Scheduled task: `setupVectorSchedule()` runs every 30 min via `node-cron` for vector retry
+- Scheduler code: `src/scheduler/vectorRetry.scheduler.js`
