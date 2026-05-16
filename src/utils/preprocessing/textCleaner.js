@@ -50,6 +50,7 @@ const removeEmojis = (text) => {
 /**
  *
  * @param {*} job
+ * @returns {Array<String>}
  */
 const cleaningJob = (job) => {
   if (!job) return null;
@@ -69,13 +70,14 @@ const cleaningJob = (job) => {
    * We also ensure that any extra whitespace is reduced to a single space to keep the text clean and consistent.
    * So AI can understand the context of the job posting and generate a meaningful vector representation for it.
    */
-  return `Job Title: ${title}. 
-            Company Location: ${job.location || "N/A"}. 
-            Job Type: ${job.jobType || "N/A"}. 
-            Level: ${job.jobLevel || "N/A"}. 
-            Description: ${desc}. 
-            Requirements: ${req}. 
-            Benefits: ${benefits}.`.replace(/\s+/g, " ");
+  const jobTitleContext = `Job Title: ${title}`;
+  const cleanedArray = [
+    `${jobTitleContext} Company Location: ${clean(job.location)}. Job Type: ${clean(job.jobType)}. Job Level: ${clean(job.jobLevel)}.`,
+    `${jobTitleContext} Description: ${desc}`,
+    `${jobTitleContext} Requirements: ${req}`,
+    `${jobTitleContext} Benefits: ${benefits}`,
+  ];
+  return cleanedArray;
 };
 
 /**

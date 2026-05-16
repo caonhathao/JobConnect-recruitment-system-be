@@ -1,4 +1,4 @@
-const suggestionService = require("../services/suggestion.services");
+const chat = require("../services/chat.services");
 const prisma = require("../config/prisma");
 /**
  *  The controller where the user can ask questions about job suggestions and get answers based on their profile and preferences.
@@ -11,7 +11,7 @@ exports.chat = async (req, res) => {
   const userId = req.user.id;
   const { question } = req.body;
   //console.log("Received question:", question);
-  const ans = await suggestionService.chat(question, userId);
+  const ans = await chat.chat(question, userId);
   console.log("Answer:", ans);
 
   if (ans.type === "SUCCESS")
@@ -35,7 +35,7 @@ exports.chat = async (req, res) => {
  */
 exports.chatHistory = async (req, res) => {
   const userId = req.user.id;
-  const history = await suggestionService.history(userId);
+  const history = await chat.history(userId);
   return res.status(200).json(history);
 };
 
@@ -55,7 +55,7 @@ exports.getJobSuggestions = async (req, res) => {
   const jobLevel = req.query.jobLevel || "";
   const salary = req.query.salary || "";
 
-  const suggestions = await suggestionService.getJobSuggestions(userId, {
+  const suggestions = await chat.getJobSuggestions(userId, {
     keyword,
     location,
     jobType,

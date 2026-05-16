@@ -111,7 +111,8 @@ exports.createJob = async (userId, data) => {
         console.log(
           `[Background Job] Starting embedding process for Job ID: ${job.id}`,
         );
-        await JobVectorService.processAndStoreJobVector(job);
+        console.log("Job data:", job);
+        await JobVectorService.processAndStoreJobVector(job, userId);
       } catch (err) {
         console.error(
           `[Background Job] Error occurred while processing embedding for Job ID: ${job.id}`,
