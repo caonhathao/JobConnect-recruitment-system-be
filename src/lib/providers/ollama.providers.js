@@ -5,6 +5,11 @@ const { messageResponse, TYPE } = require("../../utils/format/response.format");
 //create new connection to ollama server at localhost:11434
 const ollama = new Ollama({
   host: "http://localhost:11434",
+  fetchOptions: {
+    headers: { "Content-Type": "application/json" },
+    keepAliveTimeout: 300000,
+    headersTimeout: 300000,
+  },
 });
 
 /**
@@ -13,7 +18,7 @@ const ollama = new Ollama({
  * @param {number} template
  * @returns {Promise<Record<String,String>>}
  */
-async function textGeneration(prompt, template) {
+async function ollamaGeneration(prompt, template) {
   console.log("Received prompt:", prompt);
   console.log("Received template:", template);
   try {
@@ -30,7 +35,9 @@ async function textGeneration(prompt, template) {
         presence_penalty: 0.2,
       },
     });
-    return messageResponse(TYPE.success, response.message.content);
+    console.log("Raw response from Ollama API:", response.message.content);
+    const formatResult = JSON.parse(response.message.content);
+    return messageResponse(TYPE.success, "", formatResult);
   } catch (error) {
     console.error("Lỗi khi gọi Ollama API:", error);
     return messageResponse(
@@ -41,5 +48,5 @@ async function textGeneration(prompt, template) {
 }
 
 module.exports = {
-  textGeneration,
+  ollamaGeneration,
 };
