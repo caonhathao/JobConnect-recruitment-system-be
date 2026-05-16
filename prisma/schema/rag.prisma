@@ -20,6 +20,7 @@ model JobVectors {
     id        String                     @id @default(uuid()) @db.Uuid
     jobId     String                     @map("job_id") @db.Uuid
     userId    String                     @map("user_id") @db.Uuid
+    companyId String                     @map("company_id") @db.Uuid
     content   String                     @db.Text
     embedding Unsupported("vector(384)")
     createdAt DateTime                   @default(now()) @map("created_at")

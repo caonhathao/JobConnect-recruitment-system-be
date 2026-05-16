@@ -466,7 +466,7 @@ const _handleJobSearch = async (question) => {
     FROM "jobs" j
     JOIN "job_vectors" v ON j.id = v.job_id
     JOIN "companies" c ON j.company_id = c.id
-    WHERE 1 - (v.embedding <=> ${embeddingString}::vector) > ${MIN_SIMILARITY_SCORE}
+    WHERE 1 - (v.embedding <=> ${embeddingString}::vector) > ${MIN_SIMILARITY_SCORE} AND j.status='approved' AND j.deadline > NOW()
     ORDER BY j.id, (1 - (v.embedding <=> ${embeddingString}::vector)) DESC
     LIMIT 5;
   `;
@@ -574,7 +574,7 @@ const _handleJobSearchByCV = async (question, userId) => {
     WHERE jv.job_id = j.id
   ) jv
   JOIN "companies" c ON j.company_id = c.id
-  WHERE jv.similarity > ${MIN_SIMILARITY_SCORE}
+  WHERE jv.similarity > ${MIN_SIMILARITY_SCORE}  AND j.status='approved' AND j.deadline > NOW()
   ORDER BY j.id, jv.similarity DESC
   LIMIT 5;
 `;
@@ -612,7 +612,7 @@ const _handleResearch = async (refined_question, type, entities) => {
     const company = await prisma.company.findFirst({
       where: {
         name: { contains: entities[2] ?? "", mode: "insensitive" },
-        city: { contains: entities[3] ?? "", mode: "insensitive" },
+        city: { contains: entities[3] ?? {}, mode: "insensitive" },
       },
       select: {
         id: true,

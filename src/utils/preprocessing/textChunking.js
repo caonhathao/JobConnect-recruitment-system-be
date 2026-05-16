@@ -4,11 +4,12 @@
  * The function takes a cleaned job description and splits it into chunks of a specified maximum size, while also ensuring that the chunks are coherent and do not break in the middle of sentences or important information.
  * This allows for better embedding generation and more accurate search results when users query the system.
  */
-const maxChunkSize = 300; // Adjust based on your embedding model's limits
+const maxChunkSize = 150; // Adjust based on your embedding model's limits
 const overlapSize = 50; // To ensure some context is preserved between chunks
 /**
- * 
- * @param {String} text 
+ *
+ * @param {String} text
+ * @returns {Array<String>}
  */
 const textChunking = (text) => {
   if (typeof text !== "string") return [];
@@ -88,10 +89,10 @@ const textChunking = (text) => {
             const sentence = matches[i];
             if (candidate.length + sentence.length <= overlapSize) {
               candidate = sentence + candidate;
-            } else if(candidate.length === 0) {
+            } else if (candidate.length === 0) {
               candidate = sentence + candidate;
               break;
-            }else break;
+            } else break;
           }
         }
         lastSentenceFromPrevious = candidate.trimEnd();
@@ -105,6 +106,26 @@ const textChunking = (text) => {
   return chunks;
 };
 
+/**
+ *
+ * @param {Array<String>} array
+ * @returns {Array<String>}
+ */
+const arrayChunking = (array) => {
+  if (!Array.isArray(array)) return [];
+  const chunks = [];
+
+  for (const item of array) {
+    if (!item) continue;
+    const temp = textChunking(item);
+    if (temp.length === 0) continue;
+    chunks.push(...temp);
+  }
+
+  return chunks;
+};
+
 module.exports = {
   textChunking,
+  arrayChunking,
 };
