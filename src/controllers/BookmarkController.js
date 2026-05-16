@@ -26,7 +26,7 @@ exports.toggleBookmark = async (req, res) => {
 // GET /api/bookmarks
 exports.getBookmarks = async (req, res) => {
     try {
-        const data = await BookmarkService.getBookmarks(req.user.id);
+        const data = await BookmarkService.getBookmarks(req.user.id, req.query);
         return res.status(200).json({ status: 'success', count: data.length, data });
     } catch (error) {
         return handleError(res, error, 'lấy danh sách tin đã lưu');

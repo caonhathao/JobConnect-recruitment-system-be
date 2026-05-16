@@ -11,13 +11,20 @@ const process = require("process");
  * @returns {Promise<string>}
  */
 async function pdfReader(filePath) {
-  const fullPath = path.join(process.cwd(), filePath);
+  const relativePath = filePath.includes("uploads")
+    ? filePath.substring(filePath.indexOf("uploads"))
+    : filePath;
+
+  const fullPath = path.join(process.cwd(), relativePath);
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Không tìm thấy file tại: ${fullPath}`);
   }
 
   const dataBuffer = fs.readFileSync(fullPath);
-  const data = new PDFParse(dataBuffer);
+  const uint8Array = new Uint8Array(dataBuffer);
+
+  const data = new PDFParse(uint8Array);
+
   return (await data.getText()).text;
 }
 module.exports = {
