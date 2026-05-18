@@ -92,6 +92,7 @@ exports.history = async (userId) => {
       id: true,
       question: true,
       answer: true,
+      template: true,
       createdAt: true,
     },
     orderBy: { createdAt: "desc" },
@@ -513,6 +514,7 @@ const _handleJobSearch = async (question) => {
   }));
   const prompt = `Danh sách công việc (Dưới dạng JSON):\n${JSON.stringify(cleanResults, null, 2)}\n\nCâu hỏi của người dùng:\n${question}\n\n`;
   const response = await geminiGeneration(prompt, 0);
+  console.log("Response from Gemini for job search:", response);
   return response;
 };
 
@@ -594,6 +596,14 @@ const _handleJobSearchByCV = async (question, userId) => {
   ORDER BY j.id, jv.similarity DESC
   LIMIT 5;
 `;
+
+  // if (results.length === 0) {
+  //   return messageResponse(
+  //     TYPE.failed,
+  //     "Xin lỗi, tôi không tìm thấy công việc nào phù hợp với CV của bạn."
+  //   )
+  // }
+
   // @ts-ignore
   const cleanResults = results.map((job, index) => ({
     "Công việc số:": index + 1,
