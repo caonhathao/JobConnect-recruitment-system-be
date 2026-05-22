@@ -47,7 +47,7 @@ const adminJobRoutes = require("./src/routes/AdminJobRoutes");
 const adminReportRoutes = require("./src/routes/AdminReportRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const searchJobRoutes = require("./src/routes/Search_jobRoutes");
-const jobChatRoutes = require("./src/routes/chat.routers");
+const chat = require("./src/routes/chat.routers");
 const {
   setupVectorSchedule,
 } = require("./src/scheduler/vectorRetry.scheduler");
@@ -70,8 +70,8 @@ app.use("/api/employer", employerRoutes);
 app.use("/api/employer/jobs", jobManagementRoutes);
 app.use("/api/employer/applicants", applicantRoutes);
 app.use("/api/employer/dashboard", dashboardRoutes);
-app.use("/api/chat", jobChatRoutes);
-app.use("/api/chat-history", jobChatRoutes);
+app.use("/api/chat", chat);
+app.use("/api/recruiter-chat", chat);
 
 // --- Admin ---
 app.use("/api/admin/companies", adminCompanyRoutes);

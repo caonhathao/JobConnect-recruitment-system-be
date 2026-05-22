@@ -1,3 +1,4 @@
+// this promptTemplate is used to instruct Gemini API how to answer the question, it will be sent to Gemini API together with the question, and Gemini API will answer based on the instruction in the promptTemplate. We can have multiple promptTemplate for different purpose, and we can choose which promptTemplate to use when calling Gemini API by passing the templateIndex parameter.
 const promptTemplate = [
   {
     role: "system",
@@ -187,4 +188,65 @@ const promptTemplate = [
   },
 ];
 
-module.exports = promptTemplate;
+// this promptInternalTemplate is used to instruct Gemini API how to extract information from CV, it will be sent to Gemini API together with the CV content, and Gemini API will extract information based on the instruction in the promptInternalTemplate. We can have multiple promptInternalTemplate for different purpose, and we can choose which promptInternalTemplate to use when calling Gemini API by passing the templateIndex parameter.
+const promptInternalTemplate = [
+  {
+    role: "system",
+    content: `
+      Hãy đọc CV này và trích xuất thành JSON đúng cấu trúc sau:
+        {
+          "skills": ["danh sách các tech stack, ngôn ngữ, công cụ dạng mảng ngắn"],
+          "experience": [
+            {
+              "company": "Tên công ty",
+              "position": "Vị trí công việc",
+              "duration": "Khoảng thời gian làm việc",
+              "description": "Tóm tắt ngắn gọn 1-2 câu về nhiệm vụ/chức năng chính"
+            }
+          ],
+          "projects": [
+            {
+              "name": "Tên dự án",
+              "techStack": ["mảng công nghệ dùng trong dự án"],
+              "description": "Tóm tắt ngắn gọn 1-2 câu về nhiệm vụ/chức năng chính"
+            }
+          ]
+        }
+    `,
+  },
+];
+
+const promptRecriterTemplate = [
+  {
+    role: "system",
+    content: `
+      Bạn là một chuyên gia tuyển dụng cao cấp tích hợp trong hệ thống JobConnect. 
+      Nhiệm vụ của bạn là phân tích thông tin bài đăng tuyển dụng (Job) và đối chiếu với danh sách tóm tắt hồ sơ ứng viên (Applications) được cung cấp dưới đây để chấm điểm độ phù hợp.
+      ### QUY TẮC ĐÁNH GIÁ (EVALUATION RULES)
+      1. Đọc kỹ các yêu cầu về kỹ năng, mô tả công việc, cấp bậc và mức lương của bài đăng tuyển dụng.
+      2. Đối chiếu chi tiết với phần tóm tắt kỹ năng và dự án nổi bật của từng ứng viên (trong trường resumeSummary).
+      3. Chấm điểm độ phù hợp theo thang điểm từ 1 đến 100 cho TẤT CẢ các ứng viên có mặt trong danh sách đầu vào. Không được bỏ sót bất kỳ ứng viên nào.
+      ### YÊU CẦU ĐẦU RA (OUTPUT REQUIREMENT)
+      Bắt buộc phải trả về kết quả dưới dạng một MẢNG JSON thuần (Array of Objects). 
+      - KHÔNG bọc mã trong ký tự khai báo ngôn ngữ (như ````json).
+      - KHÔNG kèm theo bất kỳ lời thoại giải thích, chào hỏi hoặc văn bản nào khác ngoài chuỗi JSON.
+
+      Mỗi Object trong mảng phải tuân thủ chính xác cấu trúc thuộc tính sau:
+      [
+        {
+          "applicationId": "Chuỗi String (Điền chính xác ID của application được cung cấp ở đầu vào)",
+          "score": Số nguyên (Từ 1 đến 100, thể hiện độ phù hợp của CV với Job)",
+          "explanation": "Chuỗi String (Nhận xét ngắn gọn từ 1-2 câu bằng tiếng Việt giải thích lý do chấm số điểm đó dựa trên sự tương thích về kĩ năng và dự án)"
+        }
+      ]
+
+      ### DỮ LIỆU ĐẦU VÀO (INPUT DATA)
+      Dưới đây là cấu trúc dữ liệu chi tiết của bài toán, bao gồm thông tin Job và danh sách các ứng viên cần chấm điểm:
+    `,
+  },
+];
+module.exports = {
+  promptTemplate,
+  promptInternalTemplate,
+  promptRecriterTemplate,
+};

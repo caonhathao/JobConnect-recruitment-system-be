@@ -37,6 +37,18 @@ exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
     prisma.application.count({ where }),
     prisma.application.findMany({
       where,
+      select: {
+        id: true,
+        status: true,
+        coverLetter: true,
+        resume: {
+          select: {
+            id: true,
+            fileUrl: true,
+          },
+        },
+        createdAt: true,
+      },
       include: {
         user: {
           select: {
@@ -72,7 +84,7 @@ exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
       applicationId: app.id,
       status: app.status,
       coverLetter: app.coverLetter,
-      resumeUrl: app.resumeUrl,
+      resumeUrl: app.resume?.fileUrl,
       appliedAt: app.createdAt,
       candidate: {
         id: app.user?.id,
@@ -115,6 +127,17 @@ exports.getAllApplicants = async (userId, filters = {}) => {
     prisma.application.count({ where }),
     prisma.application.findMany({
       where,
+      select: {
+        id: true,
+        status: true,
+        resume: {
+          select: {
+            id: true,
+            fileUrl: true,
+          },
+        },
+        createdAt: true,
+      },
       include: {
         user: {
           select: {
@@ -147,7 +170,7 @@ exports.getAllApplicants = async (userId, filters = {}) => {
     applications: applications.map((app) => ({
       applicationId: app.id,
       status: app.status,
-      resumeUrl: app.resumeUrl,
+      resumeUrl: app.resume?.fileUrl || null,
       appliedAt: app.createdAt,
       job: { id: app.job?.id, title: app.job?.title },
       candidate: {
@@ -220,15 +243,15 @@ exports.getCvFile = async (userId, applicationId, mode = "view") => {
     throw new Error(
       "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền xem.",
     );
-  if (!app.resumeUrl) throw new Error("Ứng viên này chưa đính kèm CV.");
+  if (!app.resume) throw new Error("Ứng viên này chưa đính kèm CV.");
 
   if (
-    app.resumeUrl.startsWith("http://") ||
-    app.resumeUrl.startsWith("https://")
+    app.resume.fileUrl.startsWith("http://") ||
+    app.resume.fileUrl.startsWith("https://")
   ) {
     return {
-      fileUrl: app.resumeUrl,
-      fileName: path.basename(app.resumeUrl),
+      fileUrl: app.resume.fileUrl,
+      fileName: path.basename(app.resume.fileUrl),
       mode,
       isRemote: true,
     };
@@ -245,21 +268,23 @@ exports.getCvFile = async (userId, applicationId, mode = "view") => {
 // ==============================================================================
 // 5. CẬP NHẬT TRẠNG THÁI ĐƠN ỨNG TUYỂN
 const VALID_TRANSITIONS = {
-    submitted:    ['under_review', 'rejected'],
-    under_review: ['interview',    'rejected'],
-    interview:    ['accepted',     'rejected'],
-    accepted:     [],
-    rejected:     []
+  submitted: ["under_review", "rejected"],
+  under_review: ["interview", "rejected"],
+  interview: ["accepted", "rejected"],
+  accepted: [],
+  rejected: [],
 };
 
 exports.updateApplicationStatus = async (userId, applicationId, status) => {
-    const validStatuses = Object.keys(VALID_TRANSITIONS);
-    if (!validStatuses.includes(status)) {
-        throw new Error(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}`);
-    }   
+  const validStatuses = Object.keys(VALID_TRANSITIONS);
+  if (!validStatuses.includes(status)) {
+    throw new Error(
+      `Trạng thái không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(", ")}`,
+    );
+  }
 
-    const companyId = await _getCompanyId(userId);
-    const jobIds    = await _getJobIds(companyId);
+  const companyId = await _getCompanyId(userId);
+  const jobIds = await _getJobIds(companyId);
 
   const app = await prisma.application.findFirst({
     where: { id: applicationId, jobId: { in: jobIds } },
@@ -269,17 +294,19 @@ exports.updateApplicationStatus = async (userId, applicationId, status) => {
       "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.",
     );
 
-    const allowedNext = VALID_TRANSITIONS[app.status];
+  const allowedNext = VALID_TRANSITIONS[app.status];
 
-    // Trạng thái cuối không thể thay đổi
-    if (allowedNext.length === 0) {
-        throw new Error(`Đơn ứng tuyển đã ở trạng thái "${app.status}", không thể thay đổi.`);
-    }
+  // Trạng thái cuối không thể thay đổi
+  if (allowedNext.length === 0) {
+    throw new Error(
+      `Đơn ứng tuyển đã ở trạng thái "${app.status}", không thể thay đổi.`,
+    );
+  }
 
-    // Không nằm trong danh sách cho phép
-    if (!allowedNext.includes(status)) {
-        throw new Error(`Không thể chuyển từ "${app.status}" sang "${status}".`);
-    }
+  // Không nằm trong danh sách cho phép
+  if (!allowedNext.includes(status)) {
+    throw new Error(`Không thể chuyển từ "${app.status}" sang "${status}".`);
+  }
 
   await prisma.application.update({
     where: { id: applicationId },
@@ -293,24 +320,26 @@ exports.updateApplicationStatus = async (userId, applicationId, status) => {
 // 6. XÓA ĐƠN ỨNG TUYỂN
 // ==============================================================================
 exports.deleteApplication = async (userId, applicationId) => {
-    const companyId = await _getCompanyId(userId);
-    const jobIds    = await _getJobIds(companyId);
+  const companyId = await _getCompanyId(userId);
+  const jobIds = await _getJobIds(companyId);
 
-    const app = await prisma.application.findFirst({
-        where: { 
-            id:    applicationId, 
-            jobId: { in: jobIds }
-        }
-    });
+  const app = await prisma.application.findFirst({
+    where: {
+      id: applicationId,
+      jobId: { in: jobIds },
+    },
+  });
 
-    if (!app) {
-        throw new Error('Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.');
-    }
+  if (!app) {
+    throw new Error(
+      "Không tìm thấy đơn ứng tuyển hoặc bạn không có quyền thao tác.",
+    );
+  }
 
-    await prisma.application.update({
-        where: { id: applicationId },
-        data:  { isDeleted: true }
-    });
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { isDeleted: true },
+  });
 
-    return true;
+  return true;
 };

@@ -14,6 +14,10 @@ const {
   textStandardization,
 } = require("../utils/preprocessing/textStandardization");
 const { pdfReader } = require("../utils/reader/docs.reader");
+const {
+  geminiGeneration,
+  TEMPLATE_TYPE,
+} = require("../lib/providers/gemini.providers");
 
 /**
  *
@@ -112,6 +116,22 @@ async function processAndStoreResumeVector(resume, userId) {
       embedding: embeddingArray,
       index,
     };
+  });
+
+  const prompt = `Đây là thông tin về một CV ứng tuyển:\n\n${rawText}`;
+  const result = await geminiGeneration(prompt, 0, TEMPLATE_TYPE.internal);
+
+  if (result.title === "FAILED") {
+    console.warn(
+      `Gemini failed to process Resume ${resume.id} for summary generation. Error: ${result.message}`,
+    );
+    return null;
+  }
+  const summary = result.message;
+
+  await prisma.resume.update({
+    where: { id: resume.id },
+    data: { summary: summary },
   });
 
   // Step 6: Store the processed chunks and their embeddings in the database
