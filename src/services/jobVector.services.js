@@ -8,7 +8,7 @@ const crypto = require("crypto");
  */
 
 const { cleaningJob } = require("../utils/preprocessing/textCleaner");
-const { textChunking } = require("../utils/preprocessing/textChunking");
+const { arrayChunking } = require("../utils/preprocessing/textChunking");
 const { textEmbedding } = require("../utils/preprocessing/textEmbedding");
 const {
   textStandardization,
@@ -23,9 +23,11 @@ const {
 
 /**
  * @param {string} jobId - job ID
+ * @param {string} userId - user ID
+ * @param {string} companyId - company ID
  * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
  */
-async function _storeNewJobVector(jobId, processedChunks) {
+async function _storeNewJobVector(jobId, userId, companyId, processedChunks) {
   if (!jobId || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
@@ -42,8 +44,8 @@ async function _storeNewJobVector(jobId, processedChunks) {
         const vectorStr = `[${chunk.embedding.join(",")}]`;
         const id = crypto.randomUUID(); // Generate a unique ID for each chunk
         await tx.$executeRaw`
-          INSERT INTO "job_vectors" ("id", "job_id", content, embedding,created_at,updated_at)
-          VALUES ( ${id},${jobId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
+          INSERT INTO "job_vectors" ("id", "job_id", "user_id", "company_id", content, embedding,created_at,updated_at)
+          VALUES ( ${id},${jobId}, ${userId}, ${companyId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
         `;
       }
       await tx.job.update({
@@ -63,9 +65,16 @@ async function _storeNewJobVector(jobId, processedChunks) {
 
 /**
  * @param {string} jobId - job ID
+ * @param {string} userId - user ID
+ * @param {*} companyId
  * @param {ProcessedChunk[]} processedChunks - An array of objects containing chunk content, its embedding, and index
  */
-async function updateExistingJobVector(jobId, processedChunks) {
+async function updateExistingJobVector(
+  jobId,
+  userId,
+  companyId,
+  processedChunks,
+) {
   if (!jobId || !processedChunks || !Array.isArray(processedChunks)) {
     throw new Error("Invalid input for storeJobVector");
   }
@@ -82,8 +91,8 @@ async function updateExistingJobVector(jobId, processedChunks) {
         const vectorStr = `[${chunk.embedding.join(",")}]`;
         const id = crypto.randomUUID(); // Generate a unique ID for each chunk
         await tx.$executeRaw`
-          INSERT INTO "job_vectors" ("id", "job_id", content, embedding,created_at,updated_at)
-          VALUES ( ${id}, ${jobId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
+          INSERT INTO "job_vectors" ("id", "job_id","user_id", "company_id", content, embedding,created_at,updated_at)
+          VALUES ( ${id}, ${jobId}, ${userId}, ${companyId}, ${chunk.content}, ${vectorStr}::vector, NOW(), NOW())
         `;
       }
       await tx.job.update({
@@ -103,8 +112,9 @@ async function updateExistingJobVector(jobId, processedChunks) {
 
 /**
  * @param {import('@prisma/client').Job} job - job object
+ * @param {string} userId - user ID
  */
-async function processAndStoreJobVector(job) {
+async function processAndStoreJobVector(job, userId) {
   // Step 1: Clean the job data to remove noise and irrelevant information
   const cleanedText = cleaningJob(job);
   if (!cleanedText) {
@@ -114,9 +124,15 @@ async function processAndStoreJobVector(job) {
     return;
   }
   // Step 2: Standardize the cleaned text to ensure consistent representation, especially for Vietnamese text
-  const standardizedText = textStandardization(cleanedText);
+  let standardizedText = [];
+  for (const item of cleanedText) {
+    const standardized = textStandardization(item);
+    if (standardized) {
+      standardizedText.push(standardized);
+    }
+  }
   // Step 3: Chunk the standardized text into smaller pieces suitable for embedding generation
-  let chunks = textChunking(standardizedText);
+  let chunks = arrayChunking(standardizedText);
   if (chunks.length === 0) {
     console.warn(
       `Job ${job.id} has no valid chunks after chunking. Skipping vectorization.`,
@@ -145,8 +161,8 @@ async function processAndStoreJobVector(job) {
     // Handle the case where the embedding might be returned as a Tensor (e.g., from Transformers.js) instead of a plain array. We convert it to an array if necessary to ensure consistent storage in the database.
     const embeddingArray = Array.isArray(chunkEmbeddings[index])
       ? chunkEmbeddings[index]
-      // @ts-ignore
-      : Array.from(chunkEmbeddings[index].data); // if is is a Tensor from Transformers.js, convert it to array
+      : // @ts-ignore
+        Array.from(chunkEmbeddings[index].data); // if is is a Tensor from Transformers.js, convert it to array
 
     return {
       content: chunk,
@@ -157,9 +173,19 @@ async function processAndStoreJobVector(job) {
 
   if (!existingChunks || existingChunks.length === 0) {
     // Step 6: Store the processed chunks and their embeddings in the database
-    await _storeNewJobVector(job.id, processedChunks);
+    await _storeNewJobVector(
+      job.id,
+      userId,
+      job.companyId,
+      processedChunks,
+    );
   } else {
-    await updateExistingJobVector(job.id, processedChunks);
+    await updateExistingJobVector(
+      job.id,
+      userId,
+      job.companyId,
+      processedChunks,
+    );
   }
 }
 

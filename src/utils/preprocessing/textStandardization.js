@@ -99,6 +99,7 @@ const removeStopWords = (text) => {
 
 /**
  * * @param {String} text
+ * @returns {String}
  */
 const textStandardization = (text) => {
   if (!text) return null;
