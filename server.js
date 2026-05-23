@@ -51,6 +51,7 @@ const chat = require("./src/routes/chat.routers");
 const {
   setupVectorSchedule,
 } = require("./src/scheduler/vectorRetry.scheduler");
+const smartRoutes = require("./src/routes/smart.routers");
 // Router công khai
 const publicRoutes = require("./src/routes/PublicRoutes");
 // Routes
@@ -64,6 +65,7 @@ app.use("/api/bookmarks", bookmarkRoutes);
 app.use("/api/suggestions", jobSuggestionRoutes);
 app.use("/api/search-jobs", searchJobRoutes);
 app.use("/api/public", publicRoutes);
+app.use("/api/smart", smartRoutes);
 
 // --- Employer ---
 app.use("/api/employer", employerRoutes);
