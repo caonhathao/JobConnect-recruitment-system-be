@@ -1,3 +1,4 @@
+// this promptTemplate is used to instruct Gemini API how to answer the question, it will be sent to Gemini API together with the question, and Gemini API will answer based on the instruction in the promptTemplate. We can have multiple promptTemplate for different purpose, and we can choose which promptTemplate to use when calling Gemini API by passing the templateIndex parameter.
 const promptTemplate = [
   {
     role: "system",
@@ -41,7 +42,7 @@ const promptTemplate = [
     - Nhóm 3: So sánh & Đánh giá (Khi người dùng muốn so sánh mức độ phù hợp của CV với Job, hoặc so sánh A với B).
     - Nhóm 4: Thông tin & Đánh giá Việc làm/Công ty (BẮT BUỘC vào nhóm này khi câu hỏi chỉ tập trung hỏi về thông tin công việc cụ thể, môi trường làm việc, văn hóa, hoặc "đánh giá công ty X").
     - Nhóm 5: Giao tiếp chung (Cảm ơn, chào hỏi, tạm biệt hoặc những câu hỏi mang tính chất xã giao).
-    - Nhóm 6: Cần yêu cầu cụ thể hơn (Nếu câu hỏi của người dùng quá chung chung và không thể xác định CHÍNH XÁC thực thể trong bối cảnh của lịch sử chat).
+    - Nhóm 6: Cần yêu cầu cụ thể hơn (Nến lịch sử chat phát hiện có nhiều hơn 2 thực thể thuộc cùng 1 loại, ví dụ phát hiện có 2 công việc nhưng câu hỏi của người dùng không chỉ rõ được thực thể nào).
 
   QUY TẮC TRÍCH XUẤT THỰC THỂ (CRITICAL):
   1. CẤM trả về các từ chung chung như "cv", "job", "công việc này", "thực thể" trong mảng 'entities'.
@@ -187,4 +188,65 @@ const promptTemplate = [
   },
 ];
 
-module.exports = promptTemplate;
+// this promptInternalTemplate is used to instruct Gemini API how to extract information from CV, it will be sent to Gemini API together with the CV content, and Gemini API will extract information based on the instruction in the promptInternalTemplate. We can have multiple promptInternalTemplate for different purpose, and we can choose which promptInternalTemplate to use when calling Gemini API by passing the templateIndex parameter.
+const promptInternalTemplate = [
+  {
+    role: "system",
+    content: `
+      Hãy đọc CV này và trích xuất thành JSON đúng cấu trúc sau:
+        {
+          "skills": ["danh sách các tech stack, ngôn ngữ, công cụ dạng mảng ngắn"],
+          "experience": [
+            {
+              "company": "Tên công ty",
+              "position": "Vị trí công việc",
+              "duration": "Khoảng thời gian làm việc",
+              "description": "Tóm tắt ngắn gọn 1-2 câu về nhiệm vụ/chức năng chính"
+            }
+          ],
+          "projects": [
+            {
+              "name": "Tên dự án",
+              "techStack": ["mảng công nghệ dùng trong dự án"],
+              "description": "Tóm tắt ngắn gọn 1-2 câu về nhiệm vụ/chức năng chính"
+            }
+          ]
+        }
+    `,
+  },
+];
+
+const promptRecriterTemplate = [
+  {
+    role: "system",
+    content: `
+      Bạn là một chuyên gia tuyển dụng cao cấp tích hợp trong hệ thống JobConnect. 
+      Nhiệm vụ của bạn là phân tích thông tin bài đăng tuyển dụng (Job) và đối chiếu với danh sách tóm tắt hồ sơ ứng viên (Applications) được cung cấp dưới đây để chấm điểm độ phù hợp.
+      ### QUY TẮC ĐÁNH GIÁ (EVALUATION RULES)
+      1. Đọc kỹ các yêu cầu về kỹ năng, mô tả công việc, cấp bậc và mức lương của bài đăng tuyển dụng.
+      2. Đối chiếu chi tiết với phần tóm tắt kỹ năng và dự án nổi bật của từng ứng viên (trong trường resumeSummary).
+      3. Chấm điểm độ phù hợp theo thang điểm từ 1 đến 100 cho TẤT CẢ các ứng viên có mặt trong danh sách đầu vào. Không được bỏ sót bất kỳ ứng viên nào.
+      ### YÊU CẦU ĐẦU RA (OUTPUT REQUIREMENT)
+      Bắt buộc phải trả về kết quả dưới dạng một MẢNG JSON thuần (Array of Objects). 
+      - KHÔNG bọc mã trong ký tự khai báo ngôn ngữ.
+      - KHÔNG kèm theo bất kỳ lời thoại giải thích, chào hỏi hoặc văn bản nào khác ngoài chuỗi JSON.
+
+      Mỗi Object trong mảng phải tuân thủ chính xác cấu trúc thuộc tính sau:
+      [
+        {
+          "applicationId": "Chuỗi String (Điền chính xác ID của application được cung cấp ở đầu vào)",
+          "score": Số nguyên (Từ 1 đến 100, thể hiện độ phù hợp của CV với Job)",
+          "explanation": "Chuỗi String (Nhận xét ngắn gọn từ 1-2 câu bằng tiếng Việt giải thích lý do chấm số điểm đó dựa trên sự tương thích về kĩ năng và dự án)"
+        }
+      ]
+
+      ### DỮ LIỆU ĐẦU VÀO (INPUT DATA)
+      Dưới đây là cấu trúc dữ liệu chi tiết của bài toán, bao gồm thông tin Job và danh sách các ứng viên cần chấm điểm:
+    `,
+  },
+];
+module.exports = {
+  promptTemplate,
+  promptInternalTemplate,
+  promptRecriterTemplate,
+};

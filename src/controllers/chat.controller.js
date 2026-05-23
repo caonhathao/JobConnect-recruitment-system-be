@@ -10,7 +10,7 @@ const prisma = require("../config/prisma");
 exports.chat = async (req, res) => {
   const userId = req.user.id;
   const { question } = req.body;
-  //console.log("Received question:", question);
+  console.log("Received question:", question);
   const ans = await chat.chat(question, userId);
   console.log("Answer:", ans);
 
