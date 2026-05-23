@@ -73,7 +73,6 @@ app.use("/api/employer/jobs", jobManagementRoutes);
 app.use("/api/employer/applicants", applicantRoutes);
 app.use("/api/employer/dashboard", dashboardRoutes);
 app.use("/api/chat", chat);
-app.use("/api/recruiter-chat", chat);
 
 // --- Admin ---
 app.use("/api/admin/companies", adminCompanyRoutes);

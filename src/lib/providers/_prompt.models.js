@@ -42,7 +42,7 @@ const promptTemplate = [
     - Nhóm 3: So sánh & Đánh giá (Khi người dùng muốn so sánh mức độ phù hợp của CV với Job, hoặc so sánh A với B).
     - Nhóm 4: Thông tin & Đánh giá Việc làm/Công ty (BẮT BUỘC vào nhóm này khi câu hỏi chỉ tập trung hỏi về thông tin công việc cụ thể, môi trường làm việc, văn hóa, hoặc "đánh giá công ty X").
     - Nhóm 5: Giao tiếp chung (Cảm ơn, chào hỏi, tạm biệt hoặc những câu hỏi mang tính chất xã giao).
-    - Nhóm 6: Cần yêu cầu cụ thể hơn (Nếu câu hỏi của người dùng quá chung chung và không thể xác định CHÍNH XÁC thực thể trong bối cảnh của lịch sử chat).
+    - Nhóm 6: Cần yêu cầu cụ thể hơn (Nến lịch sử chat phát hiện có nhiều hơn 2 thực thể thuộc cùng 1 loại, ví dụ phát hiện có 2 công việc nhưng câu hỏi của người dùng không chỉ rõ được thực thể nào).
 
   QUY TẮC TRÍCH XUẤT THỰC THỂ (CRITICAL):
   1. CẤM trả về các từ chung chung như "cv", "job", "công việc này", "thực thể" trong mảng 'entities'.
@@ -228,7 +228,7 @@ const promptRecriterTemplate = [
       3. Chấm điểm độ phù hợp theo thang điểm từ 1 đến 100 cho TẤT CẢ các ứng viên có mặt trong danh sách đầu vào. Không được bỏ sót bất kỳ ứng viên nào.
       ### YÊU CẦU ĐẦU RA (OUTPUT REQUIREMENT)
       Bắt buộc phải trả về kết quả dưới dạng một MẢNG JSON thuần (Array of Objects). 
-      - KHÔNG bọc mã trong ký tự khai báo ngôn ngữ (như ````json).
+      - KHÔNG bọc mã trong ký tự khai báo ngôn ngữ.
       - KHÔNG kèm theo bất kỳ lời thoại giải thích, chào hỏi hoặc văn bản nào khác ngoài chuỗi JSON.
 
       Mỗi Object trong mảng phải tuân thủ chính xác cấu trúc thuộc tính sau:

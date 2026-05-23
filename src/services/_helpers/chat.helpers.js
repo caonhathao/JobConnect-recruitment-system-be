@@ -1,11 +1,11 @@
-const { geminiGeneration } = require("../../utils/generation/geminiGeneration");
 const { messageResponse, TYPE } = require("../../utils/format/response.format");
-const prisma = require("../config/prisma");
-const { cleaningText } = require("../utils/preprocessing/textCleaner");
-const { textEmbedding } = require("../utils/preprocessing/textEmbedding");
+const { geminiGeneration } = require("../../lib/providers/gemini.providers");
+const prisma = require("../../config/prisma");
+const { textEmbedding } = require("../../utils/preprocessing/textEmbedding");
+const { cleaningText } = require("../../utils/preprocessing/textCleaner");
 const {
   textStandardization,
-} = require("../utils/preprocessing/textStandardization");
+} = require("../../utils/preprocessing/textStandardization");
 const MIN_SIMILARITY_SCORE = parseFloat(
   process.env.MIN_SIMILARITY_SCORE || "0.3",
 ); // You can adjust this threshold based on your needs

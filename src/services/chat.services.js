@@ -90,67 +90,6 @@ exports.chat = async (question, userId) => {
 };
 
 /**
- * This function is to handle chat interactions for recruiters.
- * @param {String} question
- * @param {String} userId
- * @returns {Promise<Record<String,String>>}
- */
-exports.exports.recruiterChat = async (question, userId) => {
-  //first, we need to  determine whether question is belongs to a specific category
-
-  const historyChat = await _getNewestAnswerFromHistory(userId);
-  const prompt = `
-  Lịch sử chat trước đó: ${historyChat ? JSON.stringify(historyChat) : "Không có"}.
-  Câu hỏi: ${question}`;
-
-  /**
-   * the cateogry below will return a json structure like this
-   * {
-    "group": number,
-    "type": "JOB" | "COMPANY" | "CV_VS_JOB" | "GENERAL",
-    "refined_question": "string",
-    "entities": ["string"]
-  }
-   */
-  const result = await geminiGeneration(prompt, 1);
-  console.log("Category:", result);
-
-  if (result.type === "SUCCESS") {
-    try {
-      // @ts-ignore
-      const { group, type, refined_question, entities } = result.data;
-      switch (group) {
-        case 1:
-          return await _handleJobSearch(refined_question);
-        case 2:
-          return await _handleJobSearchByCV(refined_question, userId);
-        case 3:
-          return await _handleComparison(
-            refined_question,
-            entities,
-            type,
-            userId,
-          );
-        case 4:
-          return await _handleResearch(refined_question, type, entities);
-        case 5:
-          return await _handleGreeting(refined_question);
-        case 6:
-          return messageResponse(TYPE.success, refined_question);
-        default:
-          return messageResponse(
-            TYPE.failed,
-            "Tính năng này đang được phát triển. Vui lòng thử lại sau.",
-          );
-      }
-    } catch (error) {
-      console.error("Error parsing category response:", error);
-      return messageResponse(TYPE.failed, "Đã có lỗi xảy ra");
-    }
-  } else return result;
-};
-
-/**
  * This function is to get the chat history of the user, which includes all the questions asked and answers received in the past.
  * @param {String} userId
  * @returns {Promise<Record<String,String>>}

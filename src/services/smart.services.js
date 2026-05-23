@@ -25,7 +25,7 @@ exports.smartScoringCV = async (jobId, reqOpt = null) => {
       salaryMin: true,
       salaryMax: true,
       jobType: true,
-      obLevel: true,
+      jobLevel: true,
       skills: {
         select: {
           skill: true,
@@ -64,12 +64,13 @@ exports.smartScoringCV = async (jobId, reqOpt = null) => {
 
   const prompt = `${JSON.stringify(cleanResult)}\n
   Yêu cầu: ${reqOpt ?? "Không"}`;
-  const result = await geminiGeneration(prompt, 0, TEMPLATE_TYPE.internal);
+  const result = await geminiGeneration(prompt, 0, TEMPLATE_TYPE.recruiter);
   if (result.title === "FAILED") {
     return messageResponse(TYPE.failed, result.message);
   }
 
-  const sorted = result.message.sort((a, b) => b.score - a.score);
+  console.log("Raw AI Result:", result);
+  const sorted = result.data.sort((a, b) => b.score - a.score);
 
   return messageResponse(
     TYPE.success,

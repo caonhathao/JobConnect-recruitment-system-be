@@ -127,11 +127,9 @@ async function processAndStoreResumeVector(resume, userId) {
     );
     return null;
   }
-  const summary = result.message;
-
   await prisma.resume.update({
     where: { id: resume.id },
-    data: { summary: summary },
+    data: { summary: result },
   });
 
   // Step 6: Store the processed chunks and their embeddings in the database

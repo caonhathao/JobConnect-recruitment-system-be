@@ -43,7 +43,7 @@ exports.applyJob = async (userId, data) => {
       fullName: user?.fullName || "",
       email: user?.email || "",
       phone: user?.phone || "",
-      resumeUrl: resume?.fileUrl || null,
+      resumeId: resume.id,
       coverLetter: coverLetter?.trim() || null,
       status: "submitted",
     },
