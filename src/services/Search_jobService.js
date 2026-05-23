@@ -10,54 +10,82 @@ exports.searchJobs = async (filters) => {
     const pageNumber = Math.max(1, parseInt(page) || 1);
     const skip       = (pageNumber - 1) * pageSize;
 
-    // ✅ Khởi tạo where đúng Prisma
-    const where = {
-        status: 'approved',
+    // ─── Build AND array (all conditions combined) ────────────────────────────
+    const andConditions = [];
+
+    // 1. Chỉ lấy job đã duyệt
+    andConditions.push({ status: 'approved' });
+
+    // 2. Deadline chưa hết hoặc không giới hạn
+    andConditions.push({
         OR: [
             { deadline: { gt: new Date() } },
             { deadline: null }
         ]
-    };
+    });
 
-    // ✅ Keyword — tìm theo title, company name, skill name
+    // 3. Keyword — tìm theo title, company name, skill name
     if (keyword) {
         const key = keyword.trim();
-        where.AND = [
-            ...(where.AND || []),
-            {
-                OR: [
-                    { title:   { contains: key, mode: 'insensitive' } },
-                    { company: { name: { contains: key, mode: 'insensitive' } } },
-                    {
-                        skills: {
-                            some: {
-                                skill: { name: { contains: key, mode: 'insensitive' } }
-                            }
+        andConditions.push({
+            OR: [
+                { title:   { contains: key, mode: 'insensitive' } },
+                { company: { name: { contains: key, mode: 'insensitive' } } },
+                {
+                    skills: {
+                        some: {
+                            skill: { name: { contains: key, mode: 'insensitive' } }
                         }
                     }
-                ]
-            }
-        ];
+                }
+            ]
+        });
     }
 
-    // ✅ Location — tìm theo location, city, address
+    // 4. Location — tìm theo job.location (ưu tiên) hoặc company.city (phụ)
+    //    KHÔNG dùng company.address vì đó là địa chỉ đăng ký công ty,
+    //    có thể khác với địa điểm thực tế của job
     if (location) {
         const loc = location.trim();
-        where.AND = [
-            ...(where.AND || []),
-            {
-                OR: [
-                    { location: { contains: loc, mode: 'insensitive' } },
-                    { company:  { city:    { contains: loc, mode: 'insensitive' } } },
-                    { company:  { address: { contains: loc, mode: 'insensitive' } } }
-                ]
-            }
-        ];
+        andConditions.push({
+            OR: [
+                { location: { contains: loc, mode: 'insensitive' } },
+                {
+                    AND: [
+                        { location: null },          // chỉ fallback khi job không có location riêng
+                        { company: { city: { contains: loc, mode: 'insensitive' } } }
+                    ]
+                }
+            ]
+        });
     }
 
-    if (jobType)  where.jobType   = jobType;
-    if (jobLevel) where.jobLevel  = jobLevel;
-    if (salary)   where.salaryMax = { gte: parseInt(salary) };
+    // 5. Job Type (case-insensitive contains để tránh lỗi format không khớp)
+    if (jobType) {
+        andConditions.push({
+            jobType: { contains: jobType.trim(), mode: 'insensitive' }
+        });
+    }
+
+    // 6. Job Level (case-insensitive contains)
+    if (jobLevel) {
+        andConditions.push({
+            jobLevel: { contains: jobLevel.trim(), mode: 'insensitive' }
+        });
+    }
+
+    // 7. Salary — lọc job có mức lương phù hợp (salaryMin <= ngưỡng người dùng)
+    if (salary) {
+        const salaryNum = parseInt(salary);
+        andConditions.push({
+            OR: [
+                { salaryMin: { lte: salaryNum } },
+                { salaryMin: null }
+            ]
+        });
+    }
+
+    const where = { AND: andConditions };
 
     const [count, jobs] = await Promise.all([
         prisma.job.count({ where }),
@@ -85,7 +113,6 @@ exports.searchJobs = async (filters) => {
         })
     ]);
 
-    // ✅ Dùng jobs đã transform, không dùng rows
     const transformedJobs = jobs.map(job => ({
         id:           job.id,
         title:        job.title,
@@ -106,6 +133,6 @@ exports.searchJobs = async (filters) => {
         total_items:  count,
         total_pages:  Math.ceil(count / pageSize),
         current_page: pageNumber,
-        jobs:         transformedJobs  // ✅ dùng transformedJobs thay vì rows
+        jobs:         transformedJobs
     };
 };
