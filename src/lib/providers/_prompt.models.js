@@ -52,12 +52,16 @@ const promptTemplate = [
      - Nếu nhắc đến Công ty: Phải lấy Tên công ty cụ thể (Ví dụ: "QT Corp").
   3. XỬ LÝ ĐẠI TỪ: Khi thấy "việc này", "đó", "họ", bạn PHẢI tra cứu lịch sử chat gần nhất để tìm ra TÊN cụ thể của Job/Company đó và đưa vào 'entities'.
 
-  QUY TẮC LOGIC CỨNG:
-  1. Nếu câu hỏi có từ "Đánh giá", "Review", "Vấn đề gì không" + "Tên Công ty" -> BẮT BUỘC là Nhóm 4, Type: "COMPANY".
-  2. Chỉ dùng Type: "GENERAL" cho Nhóm 5 (Chào hỏi, tán gẫu). Các nhóm 1-4 PHẢI dùng đúng Type tương ứng.
-  3. Khi dùng đại từ "nó", "công ty này", bạn PHẢI điền tên thật vào 'entities' và 'refined_question' như bạn vừa làm (rất tốt).
-  4. ĐẶC BIỆT, xác định câu hỏi có khả năng ở nhóm nào trước, sau đó dựa vào bối cảnh của lịch sử chat để xác nhận lại nhóm dựa theo mức độ liên quan.
-  5. Trong trường hợp không xác định được thực thể, hãy phân loại vào nhóm 6, đồng thời 'refined_question' PHẢI là câu hỏi yêu cầu người dùng mô tả lại yêu cầu của câu hỏi trước.
+  QUY TẮC LOGIC CỨNG (CRITICAL):
+  1. Nếu câu hỏi có từ "Đánh giá", "Review", "Vấn đề gì không" + "Tên Công ty" -> BẮT BUỘC là Nhóm 4, Type: "COMPANY". 
+  2. XỬ LÝ TYPE CHO NHÓM 3 (SO SÁNH):
+     - Nếu so sánh giữa Hồ sơ và Công việc (Ví dụ: "CV tôi hợp với việc này không?") -> BẮT BUỘC Type: "CV_VS_JOB".
+     - Nếu so sánh giữa hai hoặc nhiều Công ty (Ví dụ: "Công ty A và B cái nào ok hơn?") -> BẮT BUỘC Type: "COMPANY". 
+     - Nếu so sánh giữa hai hoặc nhiều Công việc/Vị trí -> BẮT BUỘC Type: "JOB". 
+  3. Chỉ dùng Type: "GENERAL" cho Nhóm 5 (Chào hỏi, tán gẫu).
+  4. Các nhóm 1-4 PHẢI dùng đúng Type tương ứng sau khi đã áp dụng quy tắc ép loại.
+  5. Khi dùng đại từ "nó", "công ty này", "việc đó", bạn PHẢI tra cứu lịch sử chat gần nhất để điền tên thật vào 'entities' và 'refined_question'.
+  6. Trong trường hợp không xác định được thực thể, hãy phân loại vào nhóm 6, đồng thời 'refined_question' PHẢI là câu hỏi yêu cầu người dùng mô tả lại yêu cầu của câu hỏi trướctrước.
 
   QUY TẮC TRẢ LỜI:
   - 'group' chỉ gồm: 1, 2, 3, 4, 5, 6.
@@ -71,9 +75,9 @@ const promptTemplate = [
       - Vị trí 0: Luôn là "cv" (nếu có nhắc đến hồ sơ).
       - Vị trí 1: TÊN CÔNG VIỆC cụ thể (Ví dụ: "Thực tập sinh Frontend").
       - Vị trí 2: TÊN CÔNG TY cụ thể (Ví dụ: "QT Corp").
-      - Vị trí 3: ĐỊA ĐIỂM (Ví dụ: "Hồ Chí Minh").
-    2. CẤM sử dụng tiền tố như "JOB:", "COMPANY:", "LOCATION:". Chỉ trả về giá trị văn bản thuần túy.
+      - Vị trí 3: ĐỊA ĐIỂM (Ví dụ: "Thành phố Hồ Chí Minh"). BẮT BUỘC phải chuẩn hóa các từ viết tắt địa danh thành tên đầy đủ có dấu (Ví dụ: "TP.HCM", "tphcm", "HCM" phải chuyển thành "Thành phố Hồ Chí Minh"; "HN" phải chuyển thành "Hà Nội").    2. CẤM sử dụng tiền tố như "JOB:", "COMPANY:", "LOCATION:". Chỉ trả về giá trị văn bản thuần túy.
     3. Nếu người dùng dùng đại từ "việc này", bạn PHẢI tra lịch sử để điền tên thật của Job vào Vị trí 1.
+    4. CHUẨN HÓA ĐỊA DANH: Khi trích xuất địa điểm vào mảng 'entities' và 'refined_question', tuyệt đối KHÔNG giữ nguyên từ viết tắt của người dùng. Phải dịch và viết hoa trang trọng đầy đủ (Ví dụ: "Đà Nẵng", "Hà Nội", "Thành phố Hồ Chí Minh").
 
     MẪU KẾT QUẢ CHUẨN:
     Câu hỏi: "CV tôi hợp với việc đó không?" (Lịch sử: Job Nextjs tại QT Corp)

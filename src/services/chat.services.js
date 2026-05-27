@@ -75,7 +75,9 @@ exports.chat = async (question, userId) => {
         case 5:
           return await _handleGreeting(refined_question);
         case 6:
-          return messageResponse(TYPE.success, refined_question);
+          return messageResponse(TYPE.success, 6, {
+            refined_question: refined_question,
+          });
         default:
           return messageResponse(
             TYPE.failed,
