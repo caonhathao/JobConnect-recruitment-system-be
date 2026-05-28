@@ -31,7 +31,7 @@ exports.getJobSuggestions = async (userId, filters = {}) => {
         ]
     };
 
-    // 3. Không có kỹ năng → trả về job mới nhất chưa hết hạn
+    // 3. Không có kỹ năng → trả về job mới nhất chưa hết hạn với matchPercent mặc định
     if (!profile || !profile.skills || profile.skills.length === 0) {
         const jobs = await prisma.job.findMany({
             where: baseWhere,
@@ -58,7 +58,8 @@ exports.getJobSuggestions = async (userId, filters = {}) => {
             salaryMin:    job.salaryMin,
             salaryMax:    job.salaryMax,
             deadline:     job.deadline,
-            company:      job.company
+            company:      job.company,
+            matchPercent: 50 // Mức độ phù hợp mặc định khi chưa có kỹ năng
         }));
     }
 
@@ -86,7 +87,11 @@ exports.getJobSuggestions = async (userId, filters = {}) => {
         .map(job => {
             const jobSkillIds   = job.skills.map(js => js.skill.id);
             const matchCount    = jobSkillIds.filter(id => candidateSkillIds.includes(id)).length;
-            const matchPercent  = Math.round((matchCount / candidateSkillIds.length) * 100);
+            // Tính phần trăm khớp dựa trên số kỹ năng công việc yêu cầu
+            const matchPercent  = jobSkillIds.length > 0 
+                ? Math.round((matchCount / jobSkillIds.length) * 100) 
+                : 70; // 70% mặc định nếu công việc không yêu cầu kỹ năng cụ thể
+            
             const matchedSkills = job.skills
                 .filter(js => candidateSkillIds.includes(js.skill.id))
                 .map(js => js.skill.name);
@@ -110,6 +115,6 @@ exports.getJobSuggestions = async (userId, filters = {}) => {
                 matchPercent
             };
         })
-        .sort((a, b) => b.matchCount - a.matchCount)
+        .sort((a, b) => b.matchPercent - a.matchPercent)
         .slice(0, safeLimit);
 };

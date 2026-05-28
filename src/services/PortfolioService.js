@@ -99,8 +99,12 @@ exports.getSkills = async (userId) => {
 exports.createExperience = async (userId, data) => {
     _validateExperience(data);
     const profile = await _getProfile(userId);
+    const createData = { ...data, profileId: profile.id };
+    if (createData.startDate) createData.startDate = new Date(createData.startDate);
+    if (createData.endDate) createData.endDate = new Date(createData.endDate);
+
     return await prisma.experience.create({
-        data: { ...data, profileId: profile.id }
+        data: createData
     });
 };
 
@@ -108,23 +112,32 @@ exports.updateExperience = async (userId, expId, data) => {
     _validateExperience(data);
     const profile = await _getProfile(userId);
 
-    const updated = await prisma.experience.updateMany({
-        where: { id: expId, profileId: profile.id },
-        data
+    const exists = await prisma.experience.findFirst({
+        where: { id: expId, profileId: profile.id }
     });
+    if (!exists) throw new Error('Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.');
 
-    if (updated.count === 0) throw new Error('Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.');
-    return await prisma.experience.findUnique({ where: { id: expId } });
+    const updateData = { ...data };
+    if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+    if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+
+    return await prisma.experience.update({
+        where: { id: expId },
+        data: updateData
+    });
 };
 
 exports.deleteExperience = async (userId, expId) => {
     const profile = await _getProfile(userId);
 
-    const deleted = await prisma.experience.deleteMany({
+    const exists = await prisma.experience.findFirst({
         where: { id: expId, profileId: profile.id }
     });
+    if (!exists) throw new Error('Không tìm thấy dữ liệu để xóa.');
 
-    if (deleted.count === 0) throw new Error('Không tìm thấy dữ liệu để xóa.');
+    await prisma.experience.delete({
+        where: { id: expId }
+    });
     return true;
 };
 
@@ -137,8 +150,12 @@ exports.deleteAllExperiences = async (userId) => {
 exports.createEducation = async (userId, data) => {
     _validateEducation(data);
     const profile = await _getProfile(userId);
+    const createData = { ...data, profileId: profile.id };
+    if (createData.startDate) createData.startDate = new Date(createData.startDate);
+    if (createData.endDate) createData.endDate = new Date(createData.endDate);
+
     return await prisma.education.create({
-        data: { ...data, profileId: profile.id }
+        data: createData
     });
 };
 
@@ -146,23 +163,32 @@ exports.updateEducation = async (userId, eduId, data) => {
     _validateEducation(data);
     const profile = await _getProfile(userId);
 
-    const updated = await prisma.education.updateMany({
-        where: { id: eduId, profileId: profile.id },
-        data
+    const exists = await prisma.education.findFirst({
+        where: { id: eduId, profileId: profile.id }
     });
+    if (!exists) throw new Error('Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.');
 
-    if (updated.count === 0) throw new Error('Không tìm thấy dữ liệu hoặc bạn không có quyền sửa.');
-    return await prisma.education.findUnique({ where: { id: eduId } });
+    const updateData = { ...data };
+    if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+    if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+
+    return await prisma.education.update({
+        where: { id: eduId },
+        data: updateData
+    });
 };
 
 exports.deleteEducation = async (userId, eduId) => {
     const profile = await _getProfile(userId);
 
-    const deleted = await prisma.education.deleteMany({
+    const exists = await prisma.education.findFirst({
         where: { id: eduId, profileId: profile.id }
     });
+    if (!exists) throw new Error('Không tìm thấy dữ liệu để xóa.');
 
-    if (deleted.count === 0) throw new Error('Không tìm thấy dữ liệu để xóa.');
+    await prisma.education.delete({
+        where: { id: eduId }
+    });
     return true;
 };
 

@@ -64,7 +64,18 @@ exports.updateProfile = async (userId, data) => {
     if (summary !== undefined) profileUpdateData.summary = summary;
     if (address !== undefined) profileUpdateData.address = address;
     if (city !== undefined) profileUpdateData.city = city;
-    if (dateOfBirth !== undefined) profileUpdateData.dateOfBirth = dateOfBirth;
+    if (phone !== undefined) profileUpdateData.phone = phone;
+    if (dateOfBirth !== undefined) {
+        if (dateOfBirth === null || dateOfBirth === '') {
+            profileUpdateData.dateOfBirth = null;
+        } else {
+            const parsedDate = new Date(dateOfBirth);
+            if (isNaN(parsedDate.getTime())) {
+                throw new Error('Ngày sinh không hợp lệ');
+            }
+            profileUpdateData.dateOfBirth = parsedDate;
+        }
+    }
     if (gender !== undefined) profileUpdateData.gender = gender;
 
     const existingProfile = await prisma.candidate_profile.findUnique({
@@ -86,12 +97,19 @@ exports.updateProfile = async (userId, data) => {
 
     const updatedProfile = await prisma.candidate_profile.findUnique({
         where: { userId },
-        include: {
+        select: {
+            headline: true,
+            summary: true,
+            address: true,
+            city: true,
+            dateOfBirth: true,
+            gender: true,
+            createdAt: true,
+            updatedAt: true,
             user: {
                 select: { id: true, fullName: true, phone: true, avatarUrl: true, email: true }
             }
-        },
-        select: { headline: true, summary: true, address: true, city: true, dateOfBirth: true, gender: true, createdAt: true, updatedAt: true }
+        }
     });
 
     return {

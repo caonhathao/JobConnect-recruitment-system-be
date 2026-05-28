@@ -1,3 +1,4 @@
+const prisma = require('../../src/config/prisma');
 const { seedUsers } = require('./auth.seed');
 const { seedCandidates } = require('./candidate.seed');
 const { seedCompanies } = require('./company.seed');
@@ -22,7 +23,7 @@ const main = async () => {
     const { resumes, bookmarks, applications } = await seedApplications(users, jobs, profiles);
     console.log('\n✅ Seed completed successfully!');
     
-    return { users, profiles, companies, jobs, resumes, bookmarks, applications };
+    return { users, profiles, experiences, educations, companies, jobs, resumes, bookmarks, applications };
 };
 
 main()
