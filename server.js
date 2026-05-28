@@ -25,8 +25,8 @@ app.use(cors());
 app.use(express.json());
 
 // Serve file tĩnh (avatar, CV PDF...)
-// eslint-disable-next-line no-undef
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// src/uploads là nơi multer thực sự lưu file (khớp với volume mount trong Docker)
+app.use("/uploads", express.static(path.join(process.cwd(), "src", "uploads")));
 // CRUD-methods , create-post, read-get, update-put, delete-delete
 // route mặc đinh
 // Import routes

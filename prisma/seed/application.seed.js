@@ -1,7 +1,7 @@
 const { faker } = require('@faker-js/faker');
 const prisma = require('../../src/config/prisma');
 
-const seedApplications = async (users, jobs, profiles) => {
+const seedApplications = async (users, jobs, _profiles) => {
     const candidates = users.filter(u => u.role === 'candidate');
     const applications = [];
     const bookmarks = [];
@@ -68,7 +68,8 @@ const seedApplications = async (users, jobs, profiles) => {
     for (let i = 0; i < appCount; i++) {
         const candidate = faker.helpers.arrayElement(candidates);
         const job = faker.helpers.arrayElement(jobs);
-        const profile = profiles.find(p => p.userId === candidate.id);
+        
+        // const profile = profiles.find(p => p.userId === candidate.id);
         
         // Get a resume for this candidate
         const userResumes = resumes.filter(r => r.userId === candidate.id);

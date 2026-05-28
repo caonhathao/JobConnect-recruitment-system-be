@@ -84,7 +84,7 @@ exports.createJob = async (userId, data) => {
       location: location?.trim() || null,
       jobType: jobType?.trim() || null,
       jobLevel: jobLevel?.trim() || null,
-      deadline: deadline || null,
+      deadline: deadline ? new Date(deadline) : null,
       status: "pending",
       vectorStatus: "PENDING",
     },
@@ -213,7 +213,7 @@ exports.updateJob = async (userId, jobId, data) => {
   if (location !== undefined) updateData.location = location?.trim() || null;
   if (jobType !== undefined) updateData.jobType = jobType?.trim() || null;
   if (jobLevel !== undefined) updateData.jobLevel = jobLevel?.trim() || null;
-  if (deadline !== undefined) updateData.deadline = deadline;
+  if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
 
   if (Object.keys(updateData).length > 0 && job.status !== "paused") {
     updateData.status = "pending";

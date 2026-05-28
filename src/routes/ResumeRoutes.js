@@ -62,6 +62,17 @@ router.delete('/:id',
     ResumeController.deleteResume
 );
 
+/**
+ * @route   GET /api/resumes/:id/view
+ * @desc    Xem trước CV (STREAM PDF)
+ * @access  Private
+ */
+
+// GET /api/resumes/:id/view — Xem trước CV
+router.get('/:id/view',
+    ResumeController.viewResume
+);
+
 // ==============================================================================
 // XỬ LÝ LỖI MULTER
 // ==============================================================================

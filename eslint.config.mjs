@@ -13,6 +13,9 @@ export default defineConfig([
         ...globals.node,
         ...globals.jest
       }
+    },
+    rules: {
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
     } 
   },
   { 
