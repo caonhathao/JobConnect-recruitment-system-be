@@ -71,7 +71,7 @@ async function _storeNewResumeVector(resumeId, userId, processedChunks) {
  * @param {*} resume
  * @param {String} userId
  */
-async function processAndStoreResumeVector(resume, userId) {
+async function processAndStoreResumeVector(resume) {
   // Step 1: Clean the job data to remove noise and irrelevant information
 
   const rawText = await pdfReader(resume.fileUrl);
@@ -133,7 +133,7 @@ async function processAndStoreResumeVector(resume, userId) {
   });
 
   // Step 6: Store the processed chunks and their embeddings in the database
-  await _storeNewResumeVector(resume.id, userId, processedChunks);
+  await _storeNewResumeVector(resume.id, resume.userId, processedChunks);
 }
 
 module.exports = {

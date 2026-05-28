@@ -19,10 +19,15 @@ const MIN_SIMILARITY_SCORE = parseFloat(
  */
 const _handleComparison = async (refined_question, entities, type, userId) => {
   if (type === "COMPANY") {
+    const companyNames = entities[2]
+      ? entities[2]
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean)
+      : [];
     const results = await prisma.company.findMany({
       where: {
-        // @ts-ignore
-        OR: entities.map((name) => ({
+        OR: companyNames.map((name) => ({
           name: { contains: name, mode: "insensitive" },
         })),
       },
@@ -36,6 +41,8 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
         size: true,
       },
     });
+
+    console.log("Results from vector search:", results);
 
     const cleanResults = results.map((company, index) => ({
       "Công ty số:": index + 1,
@@ -115,14 +122,19 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
       );
     }
 
-    const titleKeywords = entities[1]
-      ? entities[1].trim().split(/\s+/).join(".+")
-      : "";
-    const companyKeywords = entities[2]
-      ? entities[2].trim().split(/\s+/).join(".+")
-      : "";
-    // console.log("Title keywords regex:", titleKeywords);
-    // console.log("Company keywords regex:", companyKeywords);
+    const listJob = entities[1].split(",");
+    const listCompany = entities[2].split(",");
+
+    const jobKey = listJob.map((value) => {
+      return value.trim().split(/\s+/).join(".+");
+    });
+
+    const companyKey = listCompany.map((value) => {
+      return value.trim().split(/\s+/).join(".+");
+    });
+
+    console.log("Title keywords regex:", jobKey);
+    console.log("Company keywords regex:", companyKey);
     const job = await prisma.$queryRaw`
       SELECT 
           j.id, 
@@ -135,11 +147,11 @@ const _handleComparison = async (refined_question, entities, type, userId) => {
           s.name as "skills"
       FROM "jobs" j
       JOIN "companies" c ON j.company_id = c.id 
-      JOIN "job_skills" js ON j.id = js.job_id
-      JOIN "skills" s ON js.skill_id = s.id
+      LEFT JOIN "job_skills" js ON j.id = js.job_id
+      LEFT JOIN "skills" s ON js.skill_id = s.id
       WHERE 
-          j.title ~* ${titleKeywords}
-          AND c.name ~* ${companyKeywords}
+          j.title ~* ANY(${jobKey})
+          AND c.name ~* ANY(${companyKey})
           
           AND j.status = 'approved'
           AND j.deadline >= NOW()
@@ -251,11 +263,11 @@ const _getNewestAnswerFromHistory = async (userId) => {
 /**
  * This function will search all job by the question
  * @param {String} question
+
  * @returns
  */
 const _handleJobSearch = async (question) => {
   const vectorizationQuestion = await textEmbedding(
-    // @ts-ignore
     textStandardization(cleaningText(question)),
   );
   //console.log("Vectorization question:", vectorizationQuestion);
@@ -271,6 +283,7 @@ const _handleJobSearch = async (question) => {
    * and join with full information.
    */
   const embeddingString = JSON.stringify(vectorizationQuestion);
+  //console.log("embedding string:", embeddingString);
   const queryResults = await prisma.$queryRaw`
     SELECT DISTINCT ON (j.id) 
         j.id, 
@@ -283,11 +296,11 @@ const _handleJobSearch = async (question) => {
         c.name as "companyName", 
         c.address as "companyAddress",
         c.city as "companyCity",
-        1 - (v.embedding <=> ${embeddingString}::vector) AS similarity
+        (1 - (v.embedding <=> ${embeddingString}::vector)) AS similarity
     FROM "jobs" j
     JOIN "job_vectors" v ON j.id = v.job_id
     JOIN "companies" c ON j.company_id = c.id
-    WHERE 1 - (v.embedding <=> ${embeddingString}::vector) > ${MIN_SIMILARITY_SCORE} AND j.status='approved' AND j.deadline > NOW()
+    WHERE (1 - (v.embedding <=> ${embeddingString}::vector)) > ${MIN_SIMILARITY_SCORE} AND j.status='approved' AND j.deadline > NOW()
     ORDER BY j.id, (1 - (v.embedding <=> ${embeddingString}::vector)) DESC
     LIMIT 5;
   `;
@@ -312,7 +325,8 @@ const _handleJobSearch = async (question) => {
     "Vị trí": job.title,
     "Công ty": job.companyName,
     "Mức lương": `${job.salaryMin} - ${job.salaryMax} USD`,
-    "Địa điểm": `${job.companyAddress ?? ""}, ${job.companyCity ?? ""}`,
+    "Nơi làm việc": `${job.location} (${job.jobType})`,
+    "Trụ sở công ty": `${job.companyAddress ?? ""}, ${job.companyCity ?? ""}`,
     "Mô tả": job.description,
     "Độ phù hợp": Math.round(job.similarity * 100) + "%",
   }));
@@ -407,6 +421,8 @@ const _handleJobSearchByCV = async (question, userId) => {
   //     "Xin lỗi, tôi không tìm thấy công việc nào phù hợp với CV của bạn."
   //   )
   // }
+
+  console.log("Results from vector search:", results);
 
   // @ts-ignore
   const cleanResults = results.map((job, index) => ({

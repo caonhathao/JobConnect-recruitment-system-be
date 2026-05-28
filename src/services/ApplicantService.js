@@ -130,15 +130,14 @@ exports.getAllApplicants = async (userId, filters = {}) => {
       select: {
         id: true,
         status: true,
+        createdAt: true,
         resume: {
           select: {
             id: true,
             fileUrl: true,
           },
         },
-        createdAt: true,
-      },
-      include: {
+        // Đưa mối quan hệ 'user' từ include cũ vào đây
         user: {
           select: {
             id: true,
@@ -150,12 +149,22 @@ exports.getAllApplicants = async (userId, filters = {}) => {
               include: {
                 experiences: true,
                 educations: true,
-                skills: { include: { skill: true } },
+                skills: {
+                  include: {
+                    skill: true,
+                  },
+                },
               },
             },
           },
         },
-        job: { select: { id: true, title: true } },
+        // Đưa mối quan hệ 'job' từ include cũ vào đây
+        job: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: pageSize,
