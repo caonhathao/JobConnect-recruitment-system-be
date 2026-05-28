@@ -41,15 +41,13 @@ exports.getApplicantsByJob = async (userId, jobId, filters = {}) => {
         id: true,
         status: true,
         coverLetter: true,
+        createdAt: true,
         resume: {
           select: {
             id: true,
             fileUrl: true,
           },
         },
-        createdAt: true,
-      },
-      include: {
         user: {
           select: {
             id: true,
@@ -138,7 +136,6 @@ exports.getAllApplicants = async (userId, filters = {}) => {
             fileUrl: true,
           },
         },
-        // Đưa mối quan hệ 'user' từ include cũ vào đây
         user: {
           select: {
             id: true,
@@ -159,7 +156,6 @@ exports.getAllApplicants = async (userId, filters = {}) => {
             },
           },
         },
-        // Đưa mối quan hệ 'job' từ include cũ vào đây
         job: {
           select: {
             id: true,
@@ -256,8 +252,8 @@ exports.getApplicationDetail = async (userId, applicationId) => {
       email: app.user?.email,
       phone: app.user?.phone,
       avatarUrl: app.user?.avatarUrl,
-      candidateProfile: app.user?.candidateProfile || null
-    }
+      candidateProfile: app.user?.candidateProfile || null,
+    },
   };
 };
 
@@ -288,13 +284,13 @@ exports.getCvFile = async (userId, applicationId, mode = "view") => {
   }
 
   const relativePath = app.resumeUrl.replace(/^\//, "");
-  
+
   // Danh sách các khả năng đường dẫn tuyệt đối để tìm file
   const pathsToTry = [
     path.join(process.cwd(), "src", relativePath),
     path.join(process.cwd(), relativePath),
     path.join(__dirname, "..", "..", "src", relativePath),
-    path.join(__dirname, "..", "..", relativePath)
+    path.join(__dirname, "..", "..", relativePath),
   ];
 
   let filePath = null;
@@ -307,10 +303,10 @@ exports.getCvFile = async (userId, applicationId, mode = "view") => {
   }
 
   if (!filePath) {
-    console.error('--- CV FILE NOT FOUND ---');
-    console.log('Tried these absolute paths:');
-    pathsToTry.forEach(p => console.log(' -', path.resolve(p)));
-    console.log('Database URL:', app.resumeUrl);
+    console.error("--- CV FILE NOT FOUND ---");
+    console.log("Tried these absolute paths:");
+    pathsToTry.forEach((p) => console.log(" -", path.resolve(p)));
+    console.log("Database URL:", app.resumeUrl);
     throw new Error("File CV không tồn tại trên server.");
   }
 
@@ -320,11 +316,11 @@ exports.getCvFile = async (userId, applicationId, mode = "view") => {
 // ==============================================================================
 // 5. CẬP NHẬT TRẠNG THÁI ĐƠN ỨNG TUYỂN
 const VALID_TRANSITIONS = {
-    submitted:    ['under_review', 'accepted', 'rejected'],
-    under_review: ['interview', 'accepted', 'rejected'],
-    interview:    ['accepted', 'rejected'],
-    accepted:     [],
-    rejected:     []
+  submitted: ["under_review", "accepted", "rejected"],
+  under_review: ["interview", "accepted", "rejected"],
+  interview: ["accepted", "rejected"],
+  accepted: [],
+  rejected: [],
 };
 
 exports.updateApplicationStatus = async (userId, applicationId, status) => {
